@@ -1,6 +1,19 @@
 package com.almamun252.perfectroutine.view.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.almamun252.perfectroutine.data.NoteImageStore
+import com.almamun252.perfectroutine.view.NoteImages
+import com.almamun252.perfectroutine.view.CategoryManager
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -41,21 +54,51 @@ fun AddScreen(
     tabType: String, // কোন ট্যাব থেকে এসেছে (Academic, Research ইত্যাদি)
     existingTask: Task? = null, // যদি এডিট করতে আসে
     categories: List<Category>, // ড্রপডাউনে দেখানোর জন্য আগের সাবজেক্টগুলো
-    onSaveTask: (Task) -> Unit // সেভ বাটনে ক্লিক করলে ডেটাবেসে পাঠানোর জন্য
+    onSaveTask: suspend (Task, String) -> Unit,
+    onDeleteCategory: suspend (Category) -> Unit
 ) {
     val context = LocalContext.current
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isVisible = true }
 
     // --- Form States ---
-    var title by remember { mutableStateOf(existingTask?.title ?: "") }
-    var subjectName by remember { mutableStateOf(existingTask?.subjectName ?: "") }
-    var description by remember { mutableStateOf(existingTask?.description ?: "") }
-    var priority by remember { mutableStateOf(existingTask?.priority ?: "Medium") }
+    var title by rememberSaveable { mutableStateOf(existingTask?.title ?: "") }
+    var subjectName by rememberSaveable { mutableStateOf(existingTask?.subjectName ?: "") }
+    var description by rememberSaveable { mutableStateOf(existingTask?.description ?: "") }
+    var priority by rememberSaveable { mutableStateOf(existingTask?.priority ?: "Medium") }
+
+    val scope = rememberCoroutineScope()
+    val saveRequestKey = rememberSaveable { java.util.UUID.randomUUID().toString() }
+    var imagePaths by rememberSaveable { mutableStateOf(ArrayList(existingTask?.imagePaths.orEmpty())) }
+    var importing by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var showCategories by remember { mutableStateOf(false) }
+    val busy = importing || saving
+    BackHandler(enabled = busy) { }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+        if (uris.isNotEmpty()) {
+            importing = true
+            scope.launch {
+                val added = mutableListOf<String>()
+                try {
+                    withContext(Dispatchers.IO) { NoteImageStore.pruneOldDrafts(context.applicationContext, imagePaths) }
+                    for (uri in uris.take(10)) added += NoteImageStore.importImage(context.applicationContext, uri)
+                    imagePaths = ArrayList(imagePaths + added)
+                    if (uris.size > 10) Toast.makeText(context, "একবারে ১০টি ছবি যোগ করা যায়", Toast.LENGTH_SHORT).show()
+                } catch (error: CancellationException) {
+                    withContext(Dispatchers.IO + NonCancellable) { NoteImageStore.delete(context, added) }
+                    throw error
+                } catch (_: Exception) {
+                    withContext(Dispatchers.IO) { NoteImageStore.delete(context, added) }
+                    Toast.makeText(context, "ছবি যোগ হয়নি। অন্য ছবি দিয়ে চেষ্টা করুন।", Toast.LENGTH_LONG).show()
+                } finally { importing = false }
+            }
+        }
+    }
 
     // --- Date & Time States ---
-    var deadlineMillis by remember { mutableStateOf<Long?>(existingTask?.deadline) }
-    var tempDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var deadlineMillis by rememberSaveable { mutableStateOf<Long?>(existingTask?.deadline) }
+    var tempDateMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -96,7 +139,7 @@ fun AddScreen(
                             .size(44.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(Color.White)
-                            .clickable { navController.popBackStack() },
+                            .clickable(enabled = !busy) { navController.popBackStack() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Rounded.ArrowBackIosNew, contentDescription = "Back", tint = Color(0xFF334155))
@@ -112,7 +155,7 @@ fun AddScreen(
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text("কাজের নাম (যেমন: Assignment 1)") },
+                        label = { Text("কাজের নাম (ছবি দিলে ঐচ্ছিক)") },
                         leadingIcon = { Icon(Icons.Rounded.TaskAlt, contentDescription = null, tint = themeColor) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
@@ -164,6 +207,15 @@ fun AddScreen(
                                     )
                                 }
                             }
+                        }
+                    }
+
+                    if (categories.isNotEmpty()) {
+                        TextButton(onClick = { showCategories = true }, enabled = !busy,
+                            modifier = Modifier.align(Alignment.End)) {
+                            Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Category পরিচালনা")
                         }
                     }
 
@@ -242,6 +294,24 @@ fun AddScreen(
                             focusedLabelColor = themeColor, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White
                         )
                     )
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("নোটের ছবি", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                        TextButton(enabled = !busy, onClick = {
+                            picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }) {
+                            Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("ছবি যোগ করুন")
+                        }
+                    }
+                    if (importing) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (imagePaths.isNotEmpty()) {
+                        NoteImages(paths = imagePaths, enabled = !busy, onRemove = { path ->
+                            imagePaths = ArrayList(imagePaths.filterNot { it == path })
+                            scope.launch(Dispatchers.IO) { NoteImageStore.deleteDraft(context.applicationContext, path) }
+                        })
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -249,8 +319,8 @@ fun AddScreen(
                 // --- Save Button ---
                 Button(
                     onClick = {
-                        val finalTitle = title.trim()
-                        val finalSubject = subjectName.trim()
+                        val finalTitle = title.trim().ifEmpty { if (imagePaths.isNotEmpty()) "ছবির নোট" else "" }
+                        val finalSubject = subjectName.trim().ifEmpty { if (imagePaths.isNotEmpty()) "সাধারণ" else "" }
 
                         if (finalTitle.isEmpty()) {
                             Toast.makeText(context, "কাজের নাম দেওয়া আবশ্যক!", Toast.LENGTH_SHORT).show()
@@ -271,20 +341,30 @@ fun AddScreen(
                             priority = priority,
                             isCompleted = existingTask?.isCompleted ?: false,
                             taskDate = existingTask?.taskDate ?: System.currentTimeMillis(),
-                            deadline = deadlineMillis
+                            deadline = deadlineMillis,
+                            imagePaths = imagePaths.toList()
                         )
 
-                        onSaveTask(task)
-                        Toast.makeText(context, "সফলভাবে সেভ হয়েছে!", Toast.LENGTH_SHORT).show()
-                        navController.popBackStack()
+                        saving = true
+                        scope.launch {
+                            try {
+                                onSaveTask(task, saveRequestKey)
+                                Toast.makeText(context, "সফলভাবে সেভ হয়েছে!", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            } catch (error: CancellationException) { throw error }
+                            catch (_: Exception) {
+                                Toast.makeText(context, "সেভ হয়নি। আবার চেষ্টা করুন।", Toast.LENGTH_LONG).show()
+                            } finally { saving = false }
+                        }
                     },
+                    enabled = !busy,
                     modifier = Modifier.fillMaxWidth().height(60.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = themeColor),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 8.dp)
                 ) {
                     Text(
-                        text = if (existingTask != null) "আপডেট করুন" else "সেভ করুন",
+                        text = if (saving) "সেভ হচ্ছে…" else if (existingTask != null) "আপডেট করুন" else "সেভ করুন",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -294,6 +374,10 @@ fun AddScreen(
                 Spacer(modifier = Modifier.height(60.dp))
             }
         }
+    }
+
+    if (showCategories) {
+        CategoryManager(categories, onDeleteCategory, onDismiss = { showCategories = false })
     }
 
     // --- Date Picker Dialog ---

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="routine_widget_name">Perfect Routine — Tasks</string>
+    <string name="routine_widget_description">আগামী ৩ দিনের pending task ও সব overdue task</string>
+</resources>

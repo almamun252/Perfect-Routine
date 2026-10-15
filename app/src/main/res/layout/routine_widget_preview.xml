@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="14dp" android:background="#FFFFFF">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Perfect Routine" android:textSize="16sp" android:textStyle="bold" android:textColor="#2563EB" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="আগামী ৩ দিন · Overdue" android:textSize="11sp" android:textColor="#64748B" />
+        </LinearLayout>
+        <ImageView android:layout_width="20dp" android:layout_height="20dp"
+            android:src="@drawable/widget_refresh" android:contentDescription="Refresh tasks" />
+    </LinearLayout>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingTop="4dp" android:paddingBottom="10dp" android:text="2 pending · 1 overdue"
+        android:textSize="11sp" android:textColor="#64748B" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical" android:padding="10dp" android:background="#FEF2F2">
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Assignment শেষ করা" android:textSize="13sp" android:textStyle="bold" android:textColor="#1E293B" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Learning · OOP · High" android:textSize="11sp" android:textColor="#64748B" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Overdue · 10 Oct · 08:30 am" android:textSize="11sp" android:textColor="#DC2626" />
+        </LinearLayout>
+        <ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_margin="12dp"
+            android:src="@drawable/widget_complete" android:contentDescription="Complete assignment" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp"
+        android:orientation="horizontal" android:gravity="center_vertical" android:padding="10dp" android:background="#F8FAFC">
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Java practice" android:textSize="13sp" android:textStyle="bold" android:textColor="#1E293B" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Learning · Java · High" android:textSize="11sp" android:textColor="#64748B" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="13 Oct · 08:30 am" android:textSize="11sp" android:textColor="#2563EB" />
+        </LinearLayout>
+        <ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_margin="12dp"
+            android:src="@drawable/widget_complete" android:contentDescription="Complete Java practice" />
+    </LinearLayout>
+    <TextView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="12dp" android:background="#EFF6FF" android:text="+ নতুন কাজ"
+        android:textColor="#2563EB" android:textSize="13sp" android:textStyle="bold" />
+</LinearLayout>

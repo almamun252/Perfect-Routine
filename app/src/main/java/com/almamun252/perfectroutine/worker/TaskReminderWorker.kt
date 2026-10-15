@@ -1,22 +1,36 @@
 package com.almamun252.perfectroutine.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import kotlinx.coroutines.CancellationException
 
-class TaskReminderWorker(
-    context: Context,
-    workerParams: WorkerParameters
-) : CoroutineWorker(context, workerParams) {
-
+class TaskReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        // WorkManager-এ শিডিউল করার সময় আমরা যে ডেটাগুলো পাঠাব, তা এখান থেকে রিসিভ করা হচ্ছে
-        val taskTitle = inputData.getString("TASK_TITLE") ?: "কাজের রিমাইন্ডার"
-        val message = inputData.getString("TASK_MESSAGE") ?: "আপনার একটি কাজ সম্পন্ন করার সময় হয়েছে!"
+        val taskId = inputData.getInt(TaskReminderScheduler.TASK_ID, -1)
+        val deadline = inputData.getLong(TaskReminderScheduler.DEADLINE, Long.MIN_VALUE)
+        if (taskId < 0 || deadline == Long.MIN_VALUE) return Result.failure()
+        return try {
+            TaskReminderScheduler.deliver(applicationContext, taskId, deadline)
+            Result.success()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e("TaskReminders", "Reminder data unavailable", error)
+            Result.failure()
+        }
+    }
+}
 
-        // আমাদের তৈরি করা Helper ক্লাসের মাধ্যমে নোটিফিকেশন ফায়ার করা
-        NotificationHelper.showNotification(applicationContext, taskTitle, message)
-
-        return Result.success()
+class ReminderRescheduleWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result = try {
+        TaskReminderScheduler.reconcileAll(applicationContext)
+        Result.success()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Log.e("TaskReminders", "Could not restore reminders", error)
+        Result.failure()
     }
 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.almamun252.perfectroutine.model.Task
+import com.almamun252.perfectroutine.view.NoteImages
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -416,6 +417,12 @@ fun TaskInfoCard(task: Task, themeColor: Color, totalTimeSpent: Long) { // <--- 
             if (!task.description.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 InfoRow(icon = Icons.Rounded.Notes, label = "বিস্তারিত নোট", value = task.description)
+            }
+            if (task.imagePaths.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("নোটের ছবি (${task.imagePaths.size})", style = MaterialTheme.typography.labelLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                NoteImages(task.imagePaths)
             }
         }
     }

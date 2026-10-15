@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Deferred
 
 /**
  * TaskViewModel মূলত UI-তে ডেটা সরবরাহ করে এবং ইউজার অ্যাকশন অনুযায়ী
@@ -55,18 +57,23 @@ class TaskViewModel(private val repository: RoutineRepository) : ViewModel() {
 
     // নতুন কাজ যোগ করা
     fun addTask(task: Task) {
-        viewModelScope.launch {
-            repository.insertTask(task)
+        viewModelScope.launch { repository.insertTask(task) }
+    }
 
-            // সাবজেক্টটি যদি আগে সেভ করা না থাকে, তবে সাজেশন হিসেবে সেভ করা
-            val categoryExists = allCategories.value.any { it.name == task.subjectName && it.tabType == task.tabType }
-            if (!categoryExists) {
-                repository.insertCategory(
-                    Category(name = task.subjectName, tabType = task.tabType)
-                )
-            }
+    // A configuration change must not duplicate a new task if its save already committed.
+    private val saveRequests = mutableMapOf<String, Deferred<Unit>>()
+    suspend fun saveTask(task: Task, requestKey: String) {
+        val request = saveRequests.getOrPut(requestKey) {
+            viewModelScope.async { repository.insertTask(task) }
+        }
+        try { request.await() }
+        catch (error: Exception) {
+            if (request.isCancelled) saveRequests.remove(requestKey)
+            throw error
         }
     }
+
+    suspend fun deleteCategory(category: Category) { repository.deleteCategory(category) }
 
     // কাজ ডিলিট করা
     fun deleteTask(task: Task) {

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.almamun252.perfectroutine.model.Category
 import com.almamun252.perfectroutine.model.Task
 import com.almamun252.perfectroutine.model.TimeSession
@@ -14,9 +15,10 @@ import com.almamun252.perfectroutine.model.TimeSession
  */
 @Database(
     entities = [Task::class, Category::class, TimeSession::class],
-    version = 2, // নতুন আর্কিটেকচারের জন্য ভার্সন আপডেট করা হয়েছে
-    exportSchema = false
+    version = 3,
+    exportSchema = true
 )
+@TypeConverters(NoteImageConverters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     // DAO-গুলোর রেফারেন্স
@@ -34,17 +36,16 @@ abstract class AppDatabase : RoomDatabase() {
          */
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "perfect_routine_database"
-                )
-                    // নতুন স্ট্রাকচারের কারণে পুরোনো ডেটা মুছে নতুনভাবে শুরু করার জন্য
-                    .fallbackToDestructiveMigration()
-                    .build()
+                val instance = buildDatabase(context, "perfect_routine_database")
                 INSTANCE = instance
                 instance
             }
         }
+
+        // Unknown versions must never silently erase a user's saved data.
+        internal fun buildDatabase(context: Context, name: String): AppDatabase =
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
+                .addMigrations(*DatabaseMigrations.ALL)
+                .build()
     }
 }

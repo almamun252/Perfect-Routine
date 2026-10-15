@@ -5,6 +5,8 @@
     <!-- Foreground Service এবং Notification এর জন্য পারমিশন -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- ⚠️ Android 14+ এর ক্র্যাশ ফিক্স করার জন্য নতুন পারমিশন -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
@@ -36,6 +38,28 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <receiver
+            android:name=".widget.RoutineTaskWidgetReceiver"
+            android:label="@string/routine_widget_name"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/routine_task_widget_info" />
+        </receiver>
+
+        <receiver android:name=".worker.TaskReminderReceiver" android:exported="false" />
+        <receiver android:name=".worker.ReminderRescheduleReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

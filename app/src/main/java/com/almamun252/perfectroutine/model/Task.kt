@@ -1,5 +1,6 @@
 package com.almamun252.perfectroutine.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -22,5 +23,8 @@ data class Task(
     val isCompleted: Boolean = false, // কাজটি সম্পন্ন হয়েছে কিনা (Boolean স্ট্যাটাস)
 
     val taskDate: Long,             // কাজ তৈরির তারিখ (Timestamp)
-    val deadline: Long? = null      // কাজ শেষ করার সময় (ডেডলাইন - TimePicker থেকে আসবে)
+    val deadline: Long? = null,     // কাজ শেষ করার সময়
+
+    @ColumnInfo(defaultValue = "'[]'")
+    val imagePaths: List<String> = emptyList()
 )

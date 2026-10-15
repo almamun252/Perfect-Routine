@@ -19,6 +19,9 @@ interface CategoryDao {
     @Query("SELECT * FROM category_table WHERE tabType = :tabType ORDER BY name ASC")
     fun getCategoriesByTab(tabType: String): Flow<List<Category>>
 
-    @Delete
-    suspend fun deleteCategory(category: Category)
+    @Query("DELETE FROM category_table WHERE name = :name COLLATE NOCASE AND tabType = :tabType")
+    suspend fun deleteByName(name: String, tabType: String)
+
+    @Query("INSERT INTO category_table (name, tabType) SELECT :name, :tabType WHERE NOT EXISTS (SELECT 1 FROM category_table WHERE name = :name COLLATE NOCASE AND tabType = :tabType)")
+    suspend fun ensureCategory(name: String, tabType: String)
 }

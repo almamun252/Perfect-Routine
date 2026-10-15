@@ -9,7 +9,10 @@ interface TaskDao {
 
     // নতুন টাস্ক যোগ করা বা এডিট করা
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTask(task: Task)
+    suspend fun insertTask(task: Task): Long
+
+    @Query("SELECT * FROM task_table WHERE id = :taskId LIMIT 1")
+    suspend fun getTaskById(taskId: Int): Task?
 
     // টাস্ক ডিলিট করা
     @Delete

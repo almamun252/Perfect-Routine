@@ -45,9 +45,17 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.0" // বা latest
     }
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+}
+
+kapt {
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
 }
 
 dependencies {
+    implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -80,6 +88,7 @@ dependencies {
 
     // ⚠️ উইন্ডোজে Room 2.7.0 এর Native Library ক্র্যাশ ফিক্স করার জন্য এই লাইনটি যোগ করুন
     add("kapt", "org.xerial:sqlite-jdbc:3.46.0.0")
+    androidTestImplementation("androidx.room:room-testing:$roomVersion")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     //--- for icons

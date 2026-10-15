@@ -12,6 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.almamun252.perfectroutine.MainActivity
 import com.almamun252.perfectroutine.utils.Constants
+import com.almamun252.perfectroutine.worker.NotificationHelper
 import kotlinx.coroutines.*
 
 /**
@@ -29,6 +30,7 @@ class FocusTimerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        NotificationHelper.createNotificationChannel(this)
         when (intent?.action) {
             ACTION_START -> {
                 val taskName = intent.getStringExtra(EXTRA_TASK_NAME) ?: "ফোকাস টাইমার চলছে"
@@ -60,9 +62,9 @@ class FocusTimerService : Service() {
                 delay(15 * 60 * 1000L)
 
                 // নির্দিষ্ট সময় পর পর এই ফাংশনটি কল হবে
-                sendStrictModeWarning()
-                // সাথে কাস্টম সাউন্ড প্লে করবে
-                playCustomSound()
+                if (sendStrictModeWarning()) {
+                    playCustomSound()
+                }
             }
         }
     }
@@ -103,7 +105,7 @@ class FocusTimerService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(this, Constants.NOTIFICATION_CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, Constants.TIMER_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_today)
             .setContentTitle("ফোকাস মোড চালু আছে")
             .setContentText("কাজ: $taskName")
@@ -116,6 +118,7 @@ class FocusTimerService : Service() {
     }
 
     private fun updateNotification(taskName: String, timeString: String) {
+        if (!NotificationHelper.canShowChannel(this, Constants.TIMER_CHANNEL_ID)) return
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -124,7 +127,7 @@ class FocusTimerService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(this, Constants.NOTIFICATION_CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, Constants.TIMER_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_today)
             .setContentTitle("ফোকাস মোড: $timeString")
             .setContentText("কাজ: $taskName")
@@ -137,24 +140,33 @@ class FocusTimerService : Service() {
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
-    private fun sendStrictModeWarning() {
-        val notification = NotificationCompat.Builder(this, Constants.NOTIFICATION_CHANNEL_ID)
+    private fun sendStrictModeWarning(): Boolean {
+        if (!NotificationHelper.canShowChannel(this, Constants.FOCUS_ALERT_CHANNEL_ID)) return false
+        val notification = NotificationCompat.Builder(this, Constants.FOCUS_ALERT_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("মনোযোগ দিন!")
             .setContentText("আপনার ফোকাস টাইমার চলছে। দয়া করে কাজে ফিরে আসুন!")
             .setPriority(NotificationCompat.PRIORITY_MAX) // হাই প্রায়োরিটি যাতে সামনে আসে
-            .setDefaults(NotificationCompat.DEFAULT_ALL) // ডিফল্ট সাউন্ড ও ভাইব্রেশন
+            .setDefaults(NotificationCompat.DEFAULT_VIBRATE) // নির্বাচিত সাউন্ড আলাদাভাবে একবার বাজবে
             .setAutoCancel(true)
             .build()
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(WARNING_NOTIFICATION_ID, notification)
+        return try {
+            notificationManager.notify(WARNING_NOTIFICATION_ID, notification)
+            true
+        } catch (_: SecurityException) { false }
     }
 
     private fun stopForegroundService() {
         reminderJob?.cancel() // ⚠️ সার্ভিস বন্ধ হলে রিমাইন্ডার লুপও বন্ধ হবে
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    override fun onDestroy() {
+        reminderJob?.cancel()
+        super.onDestroy()
     }
 
     companion object {

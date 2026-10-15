@@ -313,7 +313,8 @@ fun MainScreen(
                         .padding(bottom = 32.dp)
                 ) {
                     Text("আপনার নোটিফিকেশন", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E293B))
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    NotificationSettingsPanel()
 
                     if (upcomingReminders.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {

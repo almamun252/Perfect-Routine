@@ -28,6 +28,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import com.almamun252.perfectroutine.utils.HomeTaskFilter
+import kotlinx.coroutines.delay
 import com.almamun252.perfectroutine.model.Task
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -57,57 +63,32 @@ fun HomeScreen(
     var showCompletedTasksSheet by remember { mutableStateOf(false) }
     var taskToConfirm by remember { mutableStateOf<Task?>(null) } // ভুল ক্লিক রোধ করার জন্য
 
-    // --- Filtering Logic ---
-    val filteredAllTasksByDate = allTasks.filter { tx ->
-        val currentCal = Calendar.getInstance()
-        val txDeadline = tx.deadline
-
-        when (selectedDateFilter) {
-            "সব কাজ" -> true
-            "আজকের কাজ" -> {
-                if (txDeadline == null) false else {
-                    val txCal = Calendar.getInstance().apply { timeInMillis = txDeadline }
-                    txCal.get(Calendar.YEAR) == currentCal.get(Calendar.YEAR) &&
-                            txCal.get(Calendar.DAY_OF_YEAR) == currentCal.get(Calendar.DAY_OF_YEAR)
-                }
+    // Refresh only while Home is visible, including immediately after returning to the app.
+    val lifecycle = (LocalContext.current as? LifecycleOwner)?.lifecycle
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(lifecycle, allTasks) {
+        suspend fun updateClock() {
+            while (true) {
+                now = System.currentTimeMillis()
+                val nextDeadline = allTasks.filter { !it.isCompleted }.mapNotNull { it.deadline }
+                    .filter { it >= now }.minOrNull()
+                delay(nextDeadline?.let { (it - now + 1L).coerceIn(1L, 60_000L) } ?: 60_000L)
             }
-            "আগামীকালের কাজ" -> {
-                if (txDeadline == null) false else {
-                    val txCal = Calendar.getInstance().apply { timeInMillis = txDeadline }
-                    val tmrCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
-                    txCal.get(Calendar.YEAR) == tmrCal.get(Calendar.YEAR) &&
-                            txCal.get(Calendar.DAY_OF_YEAR) == tmrCal.get(Calendar.DAY_OF_YEAR)
-                }
-            }
-            "আগামী ৩ দিনের কাজ" -> {
-                if (txDeadline == null) false else {
-                    val endOf3Days = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 3) }.timeInMillis
-                    txDeadline in (currentCal.timeInMillis - 86400000L)..endOf3Days
-                }
-            }
-            "এই সপ্তাহের" -> {
-                if (txDeadline == null) false else {
-                    val endOfWeek = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 7) }.timeInMillis
-                    txDeadline in (currentCal.timeInMillis - 86400000L)..endOfWeek
-                }
-            }
-            "কাস্টম রেঞ্জ" -> {
-                if (txDeadline == null) false else {
-                    val start = customStartDate ?: 0L
-                    val end = customEndDate?.let { it + 86400000L - 1L } ?: Long.MAX_VALUE
-                    txDeadline in start..end
-                }
-            }
-            else -> true
         }
+        if (lifecycle != null) lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { updateClock() }
+        else updateClock()
     }
-
-    val filteredPendingTasks = filteredAllTasksByDate.filter { !it.isCompleted }.sortedWith(
-        compareBy(
-            { if (it.priority == "High") 0 else if (it.priority == "Medium") 1 else 2 },
-            { it.deadline ?: Long.MAX_VALUE }
-        )
-    )
+    val filteredAllTasksByDate = allTasks.filter {
+        HomeTaskFilter.matchesDate(it, selectedDateFilter, now, customStartDate, customEndDate)
+    }
+    val filteredPendingTasks = allTasks.filter {
+        !it.isCompleted && (HomeTaskFilter.isOverdue(it, now) || it in filteredAllTasksByDate)
+    }.sortedWith(compareBy<Task>(
+        { if (HomeTaskFilter.isOverdue(it, now)) 0 else 1 },
+        { if (it.priority == "High") 0 else if (it.priority == "Medium") 1 else 2 },
+        { it.deadline ?: Long.MAX_VALUE }
+    ))
+    val overdueCount = filteredPendingTasks.count { HomeTaskFilter.isOverdue(it, now) }
 
     // সম্পন্ন হওয়া কাজগুলো আলাদা করে রাখা হলো
     val filteredCompletedTasks = filteredAllTasksByDate.filter { it.isCompleted }.sortedWith(
@@ -244,7 +225,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "কাজের তালিকা ($selectedDateFilter)",
+                        text = if (overdueCount > 0) "Overdue $overdueCount · $selectedDateFilter" else "কাজের তালিকা ($selectedDateFilter)",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
@@ -288,6 +269,7 @@ fun HomeScreen(
                                 items(filteredPendingTasks, key = { it.id }) { task ->
                                     HomeTaskCard(
                                         task = task,
+                                        currentTime = now,
                                         modifier = Modifier.animateItem(),
                                         onStatusChange = { isCompleting ->
                                             if (isCompleting) {
@@ -473,8 +455,10 @@ fun HomeTaskCard(
     task: Task,
     modifier: Modifier = Modifier,
     onStatusChange: (Boolean) -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    currentTime: Long = System.currentTimeMillis()
 ) {
+    val overdue = HomeTaskFilter.isOverdue(task, currentTime)
     val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale("bn", "BD"))
     val deadlineStr = task.deadline?.let { sdf.format(Date(it)) } ?: "ডেডলাইন নেই"
 
@@ -533,9 +517,9 @@ fun HomeTaskCard(
                         Icon(tabIcon, contentDescription = null, tint = tabColor, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "${task.subjectName} • $deadlineStr",
+                            text = "${if (overdue) "Overdue • " else ""}${task.subjectName} • $deadlineStr",
                             fontSize = 11.sp,
-                            color = Color(0xFF64748B),
+                            color = if (overdue) Color(0xFFF43F5E) else Color(0xFF64748B),
                             fontWeight = FontWeight.Medium
                         )
                     }
