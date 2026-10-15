@@ -1,47 +1,169 @@
-# Perfect Routine 
+# Perfect Routine
 
-A modern productivity and task management app featuring a smart focus timer. Purpose-built to help students, teachers, and working professionals stay organized, manage time, and boost efficiency.
+Perfect Routine is an Android productivity app for organizing tasks, managing deadlines, and tracking focused work sessions. It is built with Kotlin and Jetpack Compose, with Room used for local data persistence.
 
-![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-0095D5?&style=for-the-badge&logo=kotlin&logoColor=white)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)
-![Room Database](https://img.shields.io/badge/Room_Database-FF5252?style=for-the-badge&logo=sqlite&logoColor=white)
+## Features
 
-## Key Features
+### Task management
+- Organize tasks under Learning, Research, and Work.
+- Capture quick tasks in the Temp list.
+- Reorder Temp tasks using drag and drop.
+- Add a task title, description, category, priority, and optional deadline.
+- View task details, completion status, deadline countdown, and recorded time spent.
+- Filter tasks by date range and review task summaries, including overdue tasks.
+- Attach images to task notes.
+- Create and manage categories.
 
-* **Categorized Task Management:** Organize your daily routine into specific domains: `Learning`, `Research`, and `Work`.
-* **Quick Tasks (Brain Dump):** A dedicated `Temp` section for temporary or quick tasks featuring **smooth drag-and-drop reordering** and auto-delete on completion.
-* **Advanced Focus Timer:** A built-in Pomodoro-style timer to track deep work. It utilizes Android **Foreground Services** to run flawlessly in the background, complete with a 15-minute strict mode reminder loop and custom notification sounds.
-* **Modern Notched UI:** Built with Jetpack Compose featuring a beautiful **Notched Bottom Navigation (Cutout FAB)** with dynamic slide animations and dark mode support.
-* **Smart Filtering & Analytics:** Filter tasks by "Today", "Tomorrow", "Next 3 Days", or custom date ranges. Instantly view completion stats and overdue reminders.
+### Focus timer and time tracking
+- Choose between Pomodoro and Stopwatch modes.
+- Configure the Pomodoro duration.
+- Associate a focus session with a task.
+- Save focus-session records and calculate the total recorded time for a task.
+- Display an ongoing notification while the focus service is active.
+- Use optional strict-focus reminders at 15-minute intervals while the reminder service is active.
+- Select a custom sound for strict-focus reminders.
 
-## 🛠️ Tech Stack & Architecture
+### Deadlines and notifications
+- Schedule task deadline reminders.
+- Use Android exact alarms when permitted, with WorkManager as a fallback.
+- Update reminder schedules when tasks change.
+- Handle relevant system events such as device boot, time changes, timezone changes, and package replacement.
+- Configure notification-related settings.
 
-This project is built using modern Android development practices:
+### Home-screen widget
+- View task information from an Android home-screen widget.
+- Complete a task or refresh widget content through its actions.
+- Display information from the app's local task database.
 
-* **Language:** [Kotlin](https://kotlinlang.org/)
-* **UI Toolkit:** [Jetpack Compose](https://developer.android.com/jetpack/compose) (Fully declarative UI)
-* **Architecture:** MVVM (Model-View-ViewModel)
-* **Local Database:** [Room Persistence Library](https://developer.android.com/training/data-storage/room)
-* **Asynchronous Programming:** Coroutines & StateFlow
-* **Background Processing:** Android Foreground Services & Notifications
-* **Navigation:** Compose Navigation
+### Local data storage
+- Store tasks, categories, and focus-session records using Room.
+- Export Room database schemas.
+- Migrate the database from version 2 to version 3 to add task image paths.
+- Store attached images in app-private storage and save their relative paths in the database.
+- Avoid destructive fallback migrations that could silently erase saved data when the database schema is unknown.
 
-## How to Run the Project
+## Technology stack
 
-1. Clone this repository:
-   ```bash
-   git clone [https://github.com/almamun252/Perfect-Routine.git](https://github.com/almamun252/Perfect-Routine.git)
-   
-2. Open the project in Android Studio (Flamingo or newer recommended).
+| Area | Technology |
+|---|---|
+| Language | Kotlin |
+| UI | Jetpack Compose, Material 3 |
+| Navigation | Navigation Compose |
+| Architecture | MVVM-style ViewModels and repository-based data access |
+| Local database | Room |
+| Reactive state and asynchronous work | Kotlin Coroutines, Flow, StateFlow |
+| Deadline scheduling | AlarmManager and WorkManager |
+| Focus notification | Android Foreground Service |
+| Home-screen widget | AndroidX Glance AppWidget |
+| Testing | JUnit and Android instrumentation tests |
 
-3. Let Gradle sync and download all necessary dependencies.
+## Project structure
 
-4. Build and run the app on an Android Emulator or a physical device (Android 8.0+ supported).
+```text
+app/src/main/
+├── AndroidManifest.xml
+└── java/com/almamun252/perfectroutine/
+    ├── data/        # Database, DAOs, migrations, repository, image storage
+    ├── model/       # Task, Category, and TimeSession models
+    ├── service/     # Focus timer foreground service
+    ├── utils/       # Date filtering, constants, and time formatting
+    ├── view/        # Screens and UI components
+    ├── viewmodel/   # Task and timer state and operations
+    ├── widget/      # Home-screen task widget
+    └── worker/      # Deadline scheduling, receivers, workers, notifications
+```
 
-## 👨‍💻 Developed By
-Abdullah Al Mamun
+## Requirements
 
-Computer Science & Engineering Student
+The Android module is configured with the following settings:
 
-Daffodil international university
+- **Minimum SDK:** Android 8.0 (API 26)
+- **Compile SDK:** 35
+- **Target SDK:** 35
+- **Version name:** 2.1.1
+- **Version code:** 1
+
+Use a compatible version of Android Studio and the JDK required by the project's Gradle configuration. The Gradle wrapper and version catalog define the build-tool and dependency versions.
+
+## Getting started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/almamun252/Perfect-Routine.git
+cd Perfect-Routine
+```
+
+### 2. Open the project
+
+Open the project directory in Android Studio and allow Gradle to sync. Make sure the required Android SDK is installed.
+
+### 3. Build the debug APK
+
+**Windows**
+
+```bat
+gradlew.bat assembleDebug
+```
+
+**macOS / Linux**
+
+```bash
+./gradlew assembleDebug
+```
+
+The debug APK is normally generated under:
+
+```text
+app/build/outputs/apk/debug/
+```
+
+### 4. Install on a connected device
+
+**Windows**
+
+```bat
+gradlew.bat installDebug
+```
+
+**macOS / Linux**
+
+```bash
+./gradlew installDebug
+```
+
+## Running tests
+
+Run local unit tests:
+
+```bash
+./gradlew test
+```
+
+Run Android instrumentation tests on a connected device or emulator:
+
+```bash
+./gradlew connectedAndroidTest
+```
+
+On Windows, use `gradlew.bat` instead of `./gradlew`.
+
+## Notifications and background behavior
+
+The app declares permissions related to notifications, exact alarms, boot handling, and foreground-service operation. Depending on the Android version and device settings, the user may need to grant notification permission or allow exact alarms in system settings.
+
+When exact alarms are unavailable, deadline reminders may use WorkManager. WorkManager is designed for deferrable background work and does not guarantee execution at an exact second. Battery optimization, manufacturer-specific restrictions, notification-channel settings, and Android version can affect background work and notification delivery.
+
+## Data and privacy
+
+Tasks, categories, focus-session records, and attached images are stored locally by the app. The inspected Android manifest does not declare the `INTERNET` permission. Device backup behavior depends on the app's backup configuration and Android settings.
+
+## Developer
+
+**Abdullah Al Mamun**  
+Computer Science & Engineering  
+Daffodil International University
+
+## License
+
+No license file is included in this repository. Unless a license is added, users should not assume that redistribution or modification is permitted.
