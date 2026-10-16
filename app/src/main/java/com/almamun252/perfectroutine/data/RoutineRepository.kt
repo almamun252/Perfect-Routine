@@ -1,5 +1,8 @@
 package com.almamun252.perfectroutine.data
 
+import androidx.room.withTransaction
+import com.almamun252.perfectroutine.model.UserTab
+import java.util.UUID
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -22,8 +25,58 @@ class RoutineRepository(
     private val context: Context,
     private val taskDao: TaskDao,
     private val categoryDao: CategoryDao,
-    private val timeSessionDao: TimeSessionDao
+    private val timeSessionDao: TimeSessionDao,
+    private val database: AppDatabase = AppDatabase.getDatabase(context)
 ) {
+
+    private val tabDao = database.userTabDao()
+    fun getTabs(): Flow<List<UserTab>> = tabDao.observeAll()
+
+    suspend fun saveTab(tab: UserTab) {
+        database.withTransaction {
+            val name = tab.name.trim()
+            require(name.isNotEmpty() && name.length <= 30) { "ট্যাবের নাম ১–৩০ অক্ষরের হতে হবে।" }
+            val tabs = tabDao.getAll()
+            require(tabs.none { it.id != tab.id && it.name.equals(name, ignoreCase = true) }) { "এই নামে একটি ট্যাব আছে।" }
+            if (tab.id.isEmpty()) {
+                tabDao.insert(tab.copy(id = UUID.randomUUID().toString(), name = name,
+                    sortOrder = (tabs.maxOfOrNull { it.sortOrder } ?: -1) + 1))
+            } else {
+                require(tabDao.getById(tab.id) != null) { "ট্যাবটি আর নেই।" }
+                tabDao.update(tab.copy(name = name))
+            }
+        }
+        RoutineTaskWidget.refreshAll(context)
+    }
+
+    suspend fun moveTab(id: String, direction: Int) {
+        database.withTransaction {
+            val tabs = tabDao.getAll()
+            val from = tabs.indexOfFirst { it.id == id }
+            val to = from + direction
+            if (from < 0 || to !in tabs.indices) return@withTransaction
+            val reordered = tabs.toMutableList().apply { add(to, removeAt(from)) }
+            reordered.forEachIndexed { index, tab -> tabDao.update(tab.copy(sortOrder = index)) }
+        }
+    }
+
+    suspend fun deleteTab(id: String, moveTo: String?) {
+        database.withTransaction {
+            require(tabDao.getById(id) != null) { "ট্যাবটি আর নেই।" }
+            if (tabDao.taskCount(id) > 0) {
+                require(moveTo != null && moveTo != id && tabDao.getById(moveTo) != null) {
+                    "কাজগুলো রাখার জন্য অন্য একটি ট্যাব বেছে নিন।"
+                }
+            }
+            if (moveTo != null) {
+                require(moveTo != id && tabDao.getById(moveTo) != null)
+                tabDao.moveTasks(id, moveTo)
+                tabDao.moveCategories(id, moveTo)
+            } else tabDao.deleteCategories(id)
+            tabDao.delete(id)
+        }
+        RoutineTaskWidget.refreshAll(context)
+    }
 
     private val imageWriteMutex = Mutex()
 
@@ -43,15 +96,17 @@ class RoutineRepository(
             val previous = if (task.id != 0) taskDao.getTaskById(task.id) else null
             val images = NoteImageStore.prepare(context, task.imagePaths)
             val id = try {
-                taskDao.insertTask(task.copy(imagePaths = images.paths)).toInt()
+                database.withTransaction {
+                    require(tabDao.getById(task.tabType) != null) { "ট্যাবটি সরানো হয়েছে। কাজটি আবার খুলুন।" }
+                    val savedId = taskDao.insertTask(task.copy(imagePaths = images.paths)).toInt()
+                    if (previous == null || previous.subjectName != task.subjectName || previous.tabType != task.tabType) {
+                        categoryDao.ensureCategory(task.subjectName, task.tabType)
+                    }
+                    savedId
+                }
             } catch (error: Throwable) {
                 NoteImageStore.delete(context, images.created)
                 throw error
-            }
-            // Editing an existing task must not restore a category the user deliberately removed.
-            if (previous == null || previous.subjectName != task.subjectName || previous.tabType != task.tabType) {
-                try { categoryDao.ensureCategory(task.subjectName, task.tabType) }
-                catch (error: Exception) { Log.e("RoutineRepository", "Category suggestion save failed", error) }
             }
             NoteImageStore.delete(context, images.drafts)
             try { removeUnreferencedImages(previous?.imagePaths.orEmpty() - images.paths.toSet()) }

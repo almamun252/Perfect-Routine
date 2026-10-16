@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.almamun252.perfectroutine.model.Category
+import com.almamun252.perfectroutine.model.UserTab
 import com.almamun252.perfectroutine.model.Task
 import com.almamun252.perfectroutine.model.TimeSession
 
@@ -14,14 +15,16 @@ import com.almamun252.perfectroutine.model.TimeSession
  * এখানে আমাদের তিনটি টেবিল (Task, Category, TimeSession) রেজিস্টার করা হয়েছে।
  */
 @Database(
-    entities = [Task::class, Category::class, TimeSession::class],
-    version = 3,
+    entities = [Task::class, Category::class, TimeSession::class, UserTab::class],
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(NoteImageConverters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     // DAO-গুলোর রেফারেন্স
+    abstract fun userTabDao(): UserTabDao
+
     abstract fun taskDao(): TaskDao
     abstract fun categoryDao(): CategoryDao
     abstract fun timeSessionDao(): TimeSessionDao

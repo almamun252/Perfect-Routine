@@ -39,12 +39,14 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun LearningScreen(
+fun TaskListScreen(
     navController: NavController,
     tasks: List<Task>,
     onTaskStatusChange: (Task, Boolean) -> Unit,
     onDeleteTask: (Task) -> Unit, // যদিও ডিলিট এখন ডিটেইল স্ক্রিনে হবে, মেইন স্ক্রিনের সাথে সিঙ্ক রাখতে এটি রেখে দেওয়া হলো
-    onTaskClick: (Task) -> Unit   // সরাসরি ডিটেইল স্ক্রিনে যাওয়ার জন্য
+    onTaskClick: (Task) -> Unit,
+    tabId: String,
+    tabColor: Color
 ) {
     val context = LocalContext.current
     var isVisible by remember { mutableStateOf(false) }
@@ -55,8 +57,8 @@ fun LearningScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     // Theme Colors
-    val themeColor = Color(0xFF3B82F6) // Blue
-    val lightThemeColor = Color(0xFFDBEAFE)
+    val themeColor = tabColor // Blue
+    val lightThemeColor = tabColor.copy(alpha = 0.12f)
     val bgColor = Color(0xFFF8FAFC)
 
     // Filtering Logic
@@ -135,7 +137,7 @@ fun LearningScreen(
 
                         // Add Button with Glow Light Shadow
                         Button(
-                            onClick = { navController.navigate("add_screen/Learning") },
+                            onClick = { navController.navigate("add_screen/${android.net.Uri.encode(tabId)}") },
                             modifier = Modifier
                                 .height(50.dp)
                                 .shadow(
@@ -150,7 +152,7 @@ fun LearningScreen(
                         ) {
                             Icon(Icons.Filled.Add, contentDescription = "Add", modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("নতুন লার্নিং", fontWeight = FontWeight.Bold, fontSize = 12.sp) // ছোট টেক্সট সাইজ
+                            Text("নতুন কাজ", fontWeight = FontWeight.Bold, fontSize = 12.sp) // ছোট টেক্সট সাইজ
                         }
                     }
 
@@ -322,3 +324,7 @@ fun ModernTaskCard(
         }
     }
 }
+@Composable
+fun LearningScreen(navController: NavController, tasks: List<Task>, onTaskStatusChange: (Task, Boolean) -> Unit,
+                   onDeleteTask: (Task) -> Unit, onTaskClick: (Task) -> Unit) =
+    TaskListScreen(navController, tasks, onTaskStatusChange, onDeleteTask, onTaskClick, "Learning", Color(0xFF3B82F6))

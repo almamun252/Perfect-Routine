@@ -43,6 +43,7 @@ import androidx.glance.unit.ColorProvider
 import com.almamun252.perfectroutine.MainActivity
 import com.almamun252.perfectroutine.R
 import com.almamun252.perfectroutine.data.AppDatabase
+import com.almamun252.perfectroutine.model.UserTab
 import com.almamun252.perfectroutine.model.Task
 import com.almamun252.perfectroutine.worker.TaskReminderScheduler
 import kotlinx.coroutines.CancellationException
@@ -63,7 +64,9 @@ class RoutineTaskWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val tasksFlow = AppDatabase.getDatabase(context).taskDao().getAllTasks()
+        val database = AppDatabase.getDatabase(context)
+        val tasksFlow = database.taskDao().getAllTasks()
+        val tabsFlow = database.userTabDao().observeAll()
         val initialTasks = try {
             tasksFlow.first()
         } catch (cancelled: CancellationException) {
@@ -83,9 +86,10 @@ class RoutineTaskWidget : GlanceAppWidget() {
         }
         provideContent {
             val tasks by tasksFlow.collectAsState(initialTasks)
+            val tabs by tabsFlow.collectAsState(emptyList())
             val tick = currentState<Preferences>()[RefreshKey] ?: 0L
             val now = maxOf(tick, System.currentTimeMillis())
-            WidgetContent(context, widgetTasks(tasks, now), now)
+            WidgetContent(context, widgetTasks(tasks, now), now, tabs)
         }
     }
 
@@ -124,7 +128,7 @@ private fun screenIntent(context: Context, path: String): Intent =
     }
 
 @Composable
-private fun WidgetContent(context: Context, tasks: List<Task>, now: Long) {
+private fun WidgetContent(context: Context, tasks: List<Task>, now: Long, tabs: List<UserTab>) {
     Column(
         modifier = GlanceModifier.fillMaxSize().background(Color.White)
             .cornerRadius(20.dp).padding(14.dp)
@@ -166,33 +170,28 @@ private fun WidgetContent(context: Context, tasks: List<Task>, now: Long) {
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                 items(tasks, itemId = { it.id.toLong() }) { task ->
-                    WidgetTaskRow(context, task, now)
+                    WidgetTaskRow(context, task, now, tabs.firstOrNull { it.id == task.tabType })
                 }
             }
         }
         Row(modifier = GlanceModifier.fillMaxWidth().background(Color(0xFFEFF6FF))
             .cornerRadius(10.dp).clickable(
-            actionStartActivity(screenIntent(context, "add/Learning"))
+            actionStartActivity(screenIntent(context, "home"))
         ).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(ImageProvider(R.drawable.widget_add), contentDescription = null,
                 modifier = GlanceModifier.size(16.dp))
             Spacer(modifier = GlanceModifier.width(6.dp))
-            Text("নতুন কাজ", style = TextStyle(color = ColorProvider(Blue),
+            Text("কাজ ও ট্যাব খুলুন", style = TextStyle(color = ColorProvider(Blue),
                 fontSize = 13.sp, fontWeight = FontWeight.Bold))
         }
     }
 }
 
 @Composable
-private fun WidgetTaskRow(context: Context, task: Task, now: Long) {
+private fun WidgetTaskRow(context: Context, task: Task, now: Long, tab: UserTab?) {
     val deadline = task.deadline ?: return
     val overdue = deadline < now
-    val accent = if (overdue) Color(0xFFDC2626) else when (task.tabType) {
-        "Research" -> Color(0xFF8B5CF6)
-        "Work" -> Color(0xFFD97706)
-        "Temp" -> Color(0xFF059669)
-        else -> Blue
-    }
+    val accent = if (overdue) Color(0xFFDC2626) else Color(tab?.colorArgb ?: 0xFF3B82F6L)
     val deadlineText = SimpleDateFormat("dd MMM · hh:mm a", Locale.getDefault())
         .format(Date(deadline))
     Column(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 7.dp)) {
@@ -207,7 +206,7 @@ private fun WidgetTaskRow(context: Context, task: Task, now: Long) {
             )) {
                 Text(task.title, maxLines = 2, style = TextStyle(
                     color = ColorProvider(Ink), fontSize = 13.sp, fontWeight = FontWeight.Bold))
-                Text("${task.tabType} · ${task.subjectName} · ${task.priority}", maxLines = 1,
+                Text("${tab?.name ?: "কাজ"} · ${task.subjectName} · ${task.priority}", maxLines = 1,
                     style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp))
                 Text("${if (overdue) "Overdue · " else ""}$deadlineText", maxLines = 2,
                     style = TextStyle(color = ColorProvider(accent), fontSize = 11.sp))

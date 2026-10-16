@@ -16,6 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.almamun252.perfectroutine.model.UserTab
+import com.almamun252.perfectroutine.view.tabs.TaskListScreen
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,9 +32,6 @@ import androidx.navigation.NavController
 import com.almamun252.perfectroutine.model.Task
 import com.almamun252.perfectroutine.view.screens.TempScreen
 import com.almamun252.perfectroutine.view.tabs.HomeScreen
-import com.almamun252.perfectroutine.view.tabs.LearningScreen
-import com.almamun252.perfectroutine.view.tabs.ResearchScreen
-import com.almamun252.perfectroutine.view.tabs.WorkScreen
 import com.almamun252.perfectroutine.viewmodel.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -51,26 +51,35 @@ fun MainScreen(
     navController: NavController,
     taskViewModel: TaskViewModel,
     allTasks: List<Task>,
-    learningTasks: List<Task>,
-    researchTasks: List<Task>,
-    workTasks: List<Task>,
+    tabs: List<UserTab>,
     onTaskStatusChange: (Task, Boolean) -> Unit,
     onDeleteTask: (Task) -> Unit
 ) {
-    // ⚠️ ডিফল্ট পজিশন ২ করে দেওয়া হলো (মাঝখানে 'Home' থাকবে)
-    var selectedItemIndex by remember { mutableIntStateOf(2) }
-
-    // ট্যাবের সিরিয়াল পরিবর্তন করা হয়েছে (Home কে মাঝখানে আনা হয়েছে)
-    val navItems = listOf(
-        NavigationItem("Learning", Icons.Rounded.AutoStories, "Learning", Color(0xFF3B82F6)), // 0
-        NavigationItem("Research", Icons.Rounded.Science, "Research", Color(0xFF8B5CF6)),  // 1
-        NavigationItem("Home", Icons.Rounded.Home, "Home", Color(0xFF0EA5E9)),       // 2 (Center Default)
-        NavigationItem("Work", Icons.Rounded.Work, "Work", Color(0xFFF59E0B)),        // 3
-        NavigationItem("Temp", Icons.Rounded.FlashOn, "Temp", Color(0xFFEF4444))      // 4
-    )
+    var selectedTabId by rememberSaveable { mutableStateOf("__home__") }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showAllTabs by remember { mutableStateOf(false) }
+    val visibleTabs = tabs.filter { it.isVisible }
+    val selectedTab = tabs.firstOrNull { it.id == selectedTabId && it.isVisible }
+    LaunchedEffect(tabs, selectedTabId) {
+        if (selectedTabId != "__home__" && selectedTab == null) selectedTabId = "__home__"
+    }
+    if (showSettings) {
+        TabSettingsScreen(tabs, allTasks, taskViewModel, onBack = { showSettings = false })
+        return
+    }
+    val shownTabs = if (visibleTabs.size > 4) visibleTabs.take(3) else visibleTabs
+    val navItems = buildList {
+        add(NavigationItem("Home", Icons.Rounded.Home, "__home__", Color(0xFF0EA5E9)))
+        shownTabs.forEach { tab ->
+            add(NavigationItem(tab.name, if (tab.isQuickList) Icons.Rounded.FlashOn else Icons.Rounded.Folder,
+                tab.id, Color(tab.colorArgb)))
+        }
+        if (visibleTabs.size > 4) add(NavigationItem("আরও", Icons.Rounded.MoreHoriz, "__more__", Color(0xFF64748B)))
+    }
+    val selectedItemIndex = navItems.indexOfFirst { it.tabName == selectedTabId }
+        .let { if (it >= 0) it else navItems.lastIndex }
 
     // --- টপ বার ও নোটিফিকেশনের স্টেট ---
-    var isDarkMode by remember { mutableStateOf(false) }
     var showNotificationSheet by remember { mutableStateOf(false) }
 
     val upcomingReminders = remember(allTasks) {
@@ -99,17 +108,13 @@ fun MainScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // বাম পাশের অংশ (ডাইনামিক টাইটেল)
-                    val titleText = when (selectedItemIndex) {
-                        0 -> "পড়াশোনা ও লার্নিং"
-                        1 -> "রিসার্চ ড্যাশবোর্ড"
-                        2 -> "ড্যাশবোর্ড" // Home
-                        3 -> "ওয়ার্ক ড্যাশবোর্ড"
-                        4 -> "কুইক টাস্ক (Temp)"
-                        else -> "ড্যাশবোর্ড"
-                    }
+                    val titleText = selectedTab?.name ?: "ড্যাশবোর্ড"
 
                     Text(
                         text = titleText,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
@@ -118,12 +123,12 @@ fun MainScreen(
                     // ডান পাশের থিম টগল এবং নোটিফিকেশন
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
-                            onClick = { isDarkMode = !isDarkMode },
+                            onClick = { showSettings = true },
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = if (isDarkMode) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
-                                contentDescription = "থিম পরিবর্তন",
+                                imageVector = Icons.Rounded.Settings,
+                                contentDescription = "Settings ও ট্যাব পরিচালনা",
                                 tint = navItems[selectedItemIndex].themeColor
                             )
                         }
@@ -206,7 +211,7 @@ fun MainScreen(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                    onClick = { selectedItemIndex = index }
+                                    onClick = { if (item.tabName == "__more__") showAllTabs = true else selectedTabId = item.tabName }
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
@@ -252,7 +257,7 @@ fun MainScreen(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
-                                ) { /* ক্লিক করাই আছে */ },
+                                ) { if (currentItem.tabName == "__more__") showAllTabs = true },
                             contentAlignment = Alignment.Center
                         ) {
                             // আইকন পাল্টানোর স্মুথ অ্যানিমেশন
@@ -284,16 +289,48 @@ fun MainScreen(
         ) {
             // স্ক্রিন সুইচিং (নতুন ইন্ডেক্স অনুযায়ী ম্যাপ করা হয়েছে)
             AnimatedContent(
-                targetState = selectedItemIndex,
+                targetState = selectedTabId,
                 transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
                 label = "tab_transition"
-            ) { targetIndex ->
-                when (targetIndex) {
-                    0 -> LearningScreen(navController, learningTasks, onTaskStatusChange, onDeleteTask) { navController.navigate("task_detail/${it.id}") }
-                    1 -> ResearchScreen(navController, researchTasks, onTaskStatusChange, onDeleteTask) { navController.navigate("task_detail/${it.id}") }
-                    2 -> HomeScreen(allTasks, onTaskStatusChange, onDeleteTask) { navController.navigate("task_detail/${it.id}") }
-                    3 -> WorkScreen(navController, workTasks, onTaskStatusChange, onDeleteTask) { navController.navigate("task_detail/${it.id}") }
-                    4 -> TempScreen(taskViewModel) { /* Timer not needed */ }
+            ) { id ->
+                val tab = tabs.firstOrNull { it.id == id }
+                when {
+                    id == "__home__" || tab == null -> {
+                        Column {
+                            if (tabs.isEmpty()) {
+                                TextButton(onClick = { showSettings = true }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("আপনার প্রথম ট্যাব তৈরি করুন · Settings")
+                                }
+                            }
+                            HomeScreen(allTasks, onTaskStatusChange, onDeleteTask, tabs = tabs) {
+                                navController.navigate("task_detail/${it.id}")
+                            }
+                        }
+                    }
+                    tab.isQuickList -> key(tab.id) {
+                        TempScreen(taskViewModel, tab.id, tab.name, allTasks) { }
+                    }
+                    else -> key(tab.id) {
+                        TaskListScreen(navController, allTasks.filter { it.tabType == tab.id },
+                            onTaskStatusChange, onDeleteTask,
+                            { navController.navigate("task_detail/${it.id}") }, tab.id, Color(tab.colorArgb))
+                    }
+                }
+            }
+        }
+        if (showAllTabs) {
+            ModalBottomSheet(onDismissRequest = { showAllTabs = false }) {
+                LazyColumn(contentPadding = PaddingValues(16.dp)) {
+                    item { Text("আমার ট্যাব", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                    items(visibleTabs, key = { it.id }) { tab ->
+                        TextButton(onClick = { selectedTabId = tab.id; showAllTabs = false }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(if (tab.isQuickList) Icons.Rounded.FlashOn else Icons.Rounded.Folder, null, tint = Color(tab.colorArgb))
+                            Spacer(Modifier.width(12.dp)); Text(tab.name, Modifier.weight(1f))
+                        }
+                    }
+                    item {
+                        TextButton(onClick = { showAllTabs = false; showSettings = true }) { Text("Settings · ট্যাব পরিচালনা") }
+                    }
                 }
             }
         }

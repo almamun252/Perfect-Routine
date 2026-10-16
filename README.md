@@ -4,6 +4,16 @@ Perfect Routine is an Android productivity app for organizing tasks, managing de
 
 ## Features
 
+### User-controlled tabs
+- Home is a permanent overview; other tabs are created and managed in Settings.
+- A fresh install has no predefined task tabs.
+- Existing installations retain Learning, Research, Work, Temp, and every historic task/category tab key through a non-destructive 3→4 migration.
+- Rename tabs without changing task membership; choose colors, hide tabs, and reorder them.
+- Use the common Task list or opt into Quick list mode for any tab.
+- More than four visible tabs use an “আরও” picker to keep the bottom bar usable.
+- Hiding only affects navigation: tasks remain in Home, widgets, and reminders.
+- Removing a populated tab requires moving its tasks into another tab, preserving task IDs, attached images, deadlines, and time sessions.
+
 ### Task management
 - Organize tasks under Learning, Research, and Work.
 - Capture quick tasks in the Temp list.
@@ -38,7 +48,7 @@ Perfect Routine is an Android productivity app for organizing tasks, managing de
 ### Local data storage
 - Store tasks, categories, and focus-session records using Room.
 - Export Room database schemas.
-- Migrate the database from version 2 to version 3 to add task image paths.
+- Migrate 2→3 to add task image paths, then 3→4 to add user-managed tabs.
 - Store attached images in app-private storage and save their relative paths in the database.
 - Avoid destructive fallback migrations that could silently erase saved data when the database schema is unknown.
 
@@ -80,8 +90,8 @@ The Android module is configured with the following settings:
 - **Minimum SDK:** Android 8.0 (API 26)
 - **Compile SDK:** 35
 - **Target SDK:** 35
-- **Version name:** 2.1.1
-- **Version code:** 1
+- **Version name:** 2.2.0
+- **Version code:** 2
 
 Use a compatible version of Android Studio and the JDK required by the project's Gradle configuration. The Gradle wrapper and version catalog define the build-tool and dependency versions.
 
@@ -167,3 +177,17 @@ Daffodil International University
 ## License
 
 No license file is included in this repository. Unless a license is added, users should not assume that redistribution or modification is permitted.
+
+## Version 2.2.0 verification status
+
+The tab-management update includes Android instrumentation tests in `UserTabsTest`
+for fresh installs, v3 migration, stable IDs, rename/hide/reorder, duplicate names,
+and moving populated tabs without deleting task notes or session history.
+SQLite smoke checks passed in the authoring environment. Android compilation and
+instrumentation tests have **not** run: Gradle 9.3.1 could not be downloaded due
+to network restrictions. Run `gradlew.bat :app:assembleDebug :app:testDebugUnitTest`
+and `gradlew.bat :app:connectedDebugAndroidTest` locally before installing.
+Build once to generate schema `4.json`; retain the existing exported schemas.
+
+This change implements configurable navigation and settings. Automatic study
+planning, class timetables, and assistant scheduling are not implemented yet.

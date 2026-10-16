@@ -19,3 +19,6 @@ PerfectRoutine-error.txt
 
 # Android Studio local settings
 /.idea/
+
+# Local source backups created by Apply-Update.ps1
+/update-backups/

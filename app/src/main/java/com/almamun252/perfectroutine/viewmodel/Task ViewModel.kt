@@ -17,6 +17,11 @@ import kotlinx.coroutines.Deferred
  * রিপোজিটরি ব্যবহার করে ডেটাবেসে পরিবর্তন আনে।
  */
 class TaskViewModel(private val repository: RoutineRepository) : ViewModel() {
+    val tabs = repository.getTabs().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    suspend fun saveTab(tab: com.almamun252.perfectroutine.model.UserTab) = repository.saveTab(tab)
+    suspend fun moveTab(id: String, direction: Int) = repository.moveTab(id, direction)
+    suspend fun deleteTab(id: String, moveTo: String?) = repository.deleteTab(id, moveTo)
+
 
     // ==========================================
     //            Task States (Flows)

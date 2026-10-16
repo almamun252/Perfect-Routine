@@ -34,6 +34,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.almamun252.perfectroutine.utils.HomeTaskFilter
 import kotlinx.coroutines.delay
+import com.almamun252.perfectroutine.model.UserTab
 import com.almamun252.perfectroutine.model.Task
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -46,6 +47,7 @@ fun HomeScreen(
     allTasks: List<Task>,
     onTaskStatusChange: (Task, Boolean) -> Unit,
     onDeleteTask: (Task) -> Unit,
+    tabs: List<UserTab> = emptyList(),
     onTaskClick: (Task) -> Unit
 ) {
     var isVisible by remember { mutableStateOf(false) }
@@ -269,6 +271,7 @@ fun HomeScreen(
                                 items(filteredPendingTasks, key = { it.id }) { task ->
                                     HomeTaskCard(
                                         task = task,
+                                        userTab = tabs.firstOrNull { it.id == task.tabType },
                                         currentTime = now,
                                         modifier = Modifier.animateItem(),
                                         onStatusChange = { isCompleting ->
@@ -348,6 +351,7 @@ fun HomeScreen(
                             items(filteredCompletedTasks, key = { it.id }) { task ->
                                 HomeTaskCard(
                                     task = task,
+                                    userTab = tabs.firstOrNull { it.id == task.tabType },
                                     onStatusChange = { isCompleting ->
                                         if (!isCompleting) {
                                             onTaskStatusChange(task, false)
@@ -456,18 +460,15 @@ fun HomeTaskCard(
     modifier: Modifier = Modifier,
     onStatusChange: (Boolean) -> Unit,
     onClick: () -> Unit,
+    userTab: UserTab? = null,
     currentTime: Long = System.currentTimeMillis()
 ) {
     val overdue = HomeTaskFilter.isOverdue(task, currentTime)
     val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale("bn", "BD"))
     val deadlineStr = task.deadline?.let { sdf.format(Date(it)) } ?: "ডেডলাইন নেই"
 
-    val (tabIcon, tabColor) = when(task.tabType) {
-        "Academic", "Learning" -> Icons.Rounded.AutoStories to Color(0xFF3B82F6)
-        "Research" -> Icons.Rounded.Science to Color(0xFF8B5CF6)
-        "Work" -> Icons.Rounded.Work to Color(0xFFF59E0B)
-        else -> Icons.Rounded.Star to Color(0xFF10B981)
-    }
+    val tabIcon = if (userTab?.isQuickList == true) Icons.Rounded.FlashOn else Icons.Rounded.Folder
+    val tabColor = Color(userTab?.colorArgb ?: 0xFF3B82F6L)
 
     Box(
         modifier = modifier

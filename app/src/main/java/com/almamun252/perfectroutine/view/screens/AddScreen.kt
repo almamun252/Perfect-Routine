@@ -51,6 +51,7 @@ import java.util.Locale
 @Composable
 fun AddScreen(
     navController: NavController,
+    tabColor: Color = Color(0xFF3B82F6),
     tabType: String, // কোন ট্যাব থেকে এসেছে (Academic, Research ইত্যাদি)
     existingTask: Task? = null, // যদি এডিট করতে আসে
     categories: List<Category>, // ড্রপডাউনে দেখানোর জন্য আগের সাবজেক্টগুলো
@@ -105,13 +106,7 @@ fun AddScreen(
     var subjectExpanded by remember { mutableStateOf(false) }
 
     // থিম কালার (ট্যাব অনুযায়ী পরিবর্তন হবে)
-    val themeColor = when (tabType) {
-        "Academic" -> Color(0xFF6366F1)       // Indigo (নিলচে)
-        "Research" -> Color(0xFF8B5CF6)       // Violet (বেগুনি)
-        "Extra Learning" -> Color(0xFF10B981) // Emerald (সবুজ)
-        "Work" -> Color(0xFFF59E0B)           // Amber (কমলা)
-        else -> Color(0xFF6366F1)             // ডিফল্ট
-    }
+    val themeColor = tabColor
 
     val screenTitle = if (existingTask != null) "কাজ এডিট করুন" else "নতুন কাজ যোগ করুন"
 

@@ -15,6 +15,10 @@ import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import android.widget.Toast
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,14 +32,18 @@ import com.almamun252.perfectroutine.model.Task
 import com.almamun252.perfectroutine.viewmodel.TaskViewModel
 
 @Composable
-fun TempScreen(viewModel: TaskViewModel, onNavigateToTimer: (Task) -> Unit) {
-    val tempTasks by viewModel.tempTasks.collectAsState()
+fun TempScreen(viewModel: TaskViewModel, tabId: String, tabName: String, tasks: List<Task>, onNavigateToTimer: (Task) -> Unit) {
+    val tempTasks = tasks.filter { it.tabType == tabId }.sortedByDescending { it.taskDate }
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var quickSaving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
     var taskToConfirmComplete by remember { mutableStateOf<Task?>(null) }
 
     // ম্যানুয়াল সর্টিং (Drag and Drop) এর জন্য লোকাল স্টেট
-    var localTasks by remember(tempTasks) { mutableStateOf(tempTasks) }
+    var localTasks by remember(tempTasks) { mutableStateOf(tempTasks.filter { !it.isCompleted }) }
 
     Scaffold(
         floatingActionButton = {
@@ -58,7 +66,7 @@ fun TempScreen(viewModel: TaskViewModel, onNavigateToTimer: (Task) -> Unit) {
         ) {
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "Quick Tasks ⚡",
+                text = tabName,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF1E293B)
@@ -128,18 +136,32 @@ fun TempScreen(viewModel: TaskViewModel, onNavigateToTimer: (Task) -> Unit) {
     // ১. কুইক অ্যাড টাস্ক ডায়ালগ
     if (showAddDialog) {
         QuickAddTempDialog(
-            onDismiss = { showAddDialog = false },
+            onDismiss = { if (!quickSaving) showAddDialog = false },
+            saving = quickSaving,
             onSave = { title, note, priority ->
                 val newTask = Task(
                     title = title,
                     description = note,
                     subjectName = "Quick", // ডিফল্ট সাবজেক্ট
                     priority = priority,
-                    tabType = "Temp", // এটি হোম স্ক্রিন থেকে আলাদা রাখবে
+                    tabType = tabId, // এটি হোম স্ক্রিন থেকে আলাদা রাখবে
                     taskDate = System.currentTimeMillis()
                 )
-                viewModel.addTask(newTask)
-                showAddDialog = false
+                if (!quickSaving) {
+                    quickSaving = true
+                    scope.launch {
+                        try {
+                            viewModel.saveTask(newTask, java.util.UUID.randomUUID().toString())
+                            showAddDialog = false
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "কাজ সেভ হয়নি। আবার চেষ্টা করুন।", Toast.LENGTH_LONG).show()
+                        } finally {
+                            quickSaving = false
+                        }
+                    }
+                }
             }
         )
     }
@@ -150,11 +172,11 @@ fun TempScreen(viewModel: TaskViewModel, onNavigateToTimer: (Task) -> Unit) {
             onDismissRequest = { taskToConfirmComplete = null },
             containerColor = Color.White,
             title = { Text("কাজ সম্পন্ন?", fontWeight = FontWeight.Bold) },
-            text = { Text("আপনি কি এই টেম্পোরারি কাজটি পুরোপুরি শেষ করেছেন? শেষ হয়ে থাকলে এটি লিস্ট থেকে মুছে ফেলা হবে।") },
+            text = { Text("আপনি কি এই টেম্পোরারি কাজটি পুরোপুরি শেষ করেছেন? শেষ হয়ে থাকলে এটি সম্পন্ন হিসেবে রাখা হবে।") },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteTask(task) // ডান হলে সরাসরি মুছে যাবে
+                        viewModel.updateTaskStatus(task, true) // Keep completed tasks in history.
                         taskToConfirmComplete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
@@ -241,7 +263,7 @@ fun TempTaskCard(
 }
 
 @Composable
-fun QuickAddTempDialog(onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
+fun QuickAddTempDialog(onDismiss: () -> Unit, saving: Boolean = false, onSave: (String, String, String) -> Unit) {
     var title by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf("Medium") }
@@ -279,11 +301,12 @@ fun QuickAddTempDialog(onDismiss: () -> Unit, onSave: (String, String, String) -
         confirmButton = {
             Button(
                 onClick = { if (title.isNotBlank()) onSave(title, note, priority) },
+                enabled = !saving && title.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
             ) { Text("সেভ করুন") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("বাতিল", color = Color.Gray) }
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("বাতিল", color = Color.Gray) }
         }
     )
 }

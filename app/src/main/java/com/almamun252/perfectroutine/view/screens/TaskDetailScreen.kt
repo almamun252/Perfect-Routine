@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun TaskDetailScreen(
     task: Task,
+    tabColor: Color = Color(0xFF3B82F6),
     totalTimeSpent: Long, // <--- ডাটাবেস থেকে পাওয়া মোট সময় রিসিভ করা হচ্ছে
     onNavigateBack: () -> Unit,
     onStartTimerClick: (Task) -> Unit, // ফোকাস টাইমার শুরু করতে
@@ -53,12 +54,7 @@ fun TaskDetailScreen(
     }
 
     // ট্যাবের থিম কালার
-    val themeColor = when (task.tabType) {
-        "Academic", "Learning" -> Color(0xFF3B82F6)
-        "Research" -> Color(0xFF8B5CF6)
-        "Work" -> Color(0xFFF59E0B)
-        else -> Color(0xFF10B981)
-    }
+    val themeColor = tabColor
 
     // ডিলিট কনফার্মেশন ডায়ালগ স্টেট
     var showDeleteDialog by remember { mutableStateOf(false) }

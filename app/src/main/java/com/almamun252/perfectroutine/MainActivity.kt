@@ -88,9 +88,7 @@ class MainActivity : ComponentActivity() {
 
                         // ডেটাবেস থেকে স্টেটগুলো কালেক্ট করা
                         val allTasks by taskViewModel.allTasks.collectAsState()
-                        val learningTasks by taskViewModel.learningTasks.collectAsState()
-                        val researchTasks by taskViewModel.researchTasks.collectAsState()
-                        val workTasks by taskViewModel.workTasks.collectAsState()
+                        val tabs by taskViewModel.tabs.collectAsState()
                         val allCategories by taskViewModel.allCategories.collectAsState()
 
                         // ন্যাভিগেশন সেটআপ
@@ -109,9 +107,7 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     taskViewModel = taskViewModel, // ⚠️ এই লাইনটি মিসিং ছিল, এখন যোগ করা হয়েছে
                                     allTasks = allTasks,
-                                    learningTasks = learningTasks,
-                                    researchTasks = researchTasks,
-                                    workTasks = workTasks,
+                                    tabs = tabs,
                                     onTaskStatusChange = { task, isCompleted ->
                                         taskViewModel.updateTaskStatus(task, isCompleted)
                                     },
@@ -136,13 +132,14 @@ class MainActivity : ComponentActivity() {
 
                                     TaskDetailScreen(
                                         task = task,
+                                        tabColor = Color(tabs.firstOrNull { it.id == task.tabType }?.colorArgb ?: 0xFF3B82F6L),
                                         totalTimeSpent = totalTimeSpent ?: 0L, // প্যারামিটারটি পাস করা হলো
                                         onNavigateBack = { navController.popBackStack() },
                                         onStartTimerClick = { t ->
                                             navController.navigate("timer_screen/${t.id}")
                                         },
                                         onEditClick = { t ->
-                                            navController.navigate("add_screen/${t.tabType}?taskId=${t.id}")
+                                            navController.navigate("add_screen/${android.net.Uri.encode(t.tabType)}?taskId=${t.id}")
                                         },
                                         onCompleteClick = { t ->
                                             taskViewModel.updateTaskStatus(t, !t.isCompleted)
@@ -171,12 +168,7 @@ class MainActivity : ComponentActivity() {
                                     val currentMode by timerViewModel.currentMode.collectAsState()
                                     val context = LocalContext.current
 
-                                    val themeColor = when (task.tabType) {
-                                        "Academic", "Learning" -> Color(0xFF3B82F6)
-                                        "Research" -> Color(0xFF8B5CF6)
-                                        "Work" -> Color(0xFFF59E0B)
-                                        else -> Color(0xFF10B981)
-                                    }
+                                    val themeColor = Color(tabs.firstOrNull { it.id == task.tabType }?.colorArgb ?: 0xFF3B82F6L)
 
                                     TimerScreen(
                                         taskTitle = task.title,
@@ -225,14 +217,27 @@ class MainActivity : ComponentActivity() {
                                     allTasks.find { it.id == taskId }
                                 } else null
 
+                                val resolvedTab = tabs.firstOrNull { it.id == (existingTask?.tabType ?: tabType) }
+                                if (resolvedTab == null) {
+                                    androidx.compose.foundation.layout.Column {
+                                        androidx.compose.material3.Text("ট্যাবটি পাওয়া যায়নি। Settings থেকে একটি ট্যাব তৈরি বা নির্বাচন করুন।")
+                                        androidx.compose.material3.TextButton(onClick = { navController.popBackStack() }) {
+                                            androidx.compose.material3.Text("ফিরে যান")
+                                        }
+                                    }
+                                    return@composable
+                                }
+                                androidx.compose.runtime.key(resolvedTab.id, taskId) {
                                 AddScreen(
                                     navController = navController,
-                                    tabType = tabType,
+                                    tabType = resolvedTab.id,
+                                    tabColor = Color(resolvedTab.colorArgb),
                                     existingTask = existingTask,
-                                    categories = allCategories.filter { it.tabType == tabType },
+                                    categories = allCategories.filter { it.tabType == resolvedTab.id },
                                     onSaveTask = { task, key -> taskViewModel.saveTask(task, key) },
                                     onDeleteCategory = { category -> taskViewModel.deleteCategory(category) }
                                 )
+                                }
                             }
                         }
                     }
