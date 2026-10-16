@@ -133,7 +133,7 @@ fun TabSettingsScreen(tabs: List<UserTab>, tasks: List<Task>, viewModel: TaskVie
         val count = tasks.count { it.tabType == tab.id }
         AlertDialog(onDismissRequest = { if (!busy) deleting = null }, title = { Text("${tab.name} সরাবেন?") },
             text = { Column {
-                Text(if (count > 0) "$countটি কাজ মুছবে না। কাজগুলো রাখার ট্যাব বেছে নিন।" else "এই ট্যাবের category suggestion-ও সরবে।")
+                Text(if (count > 0) "${count}টি কাজ মুছবে না। কাজগুলো রাখার ট্যাব বেছে নিন।" else "এই ট্যাবের category suggestion-ও সরবে।")
                 if (count > 0 && tabs.size == 1) Text("আগে আরেকটি ট্যাব তৈরি করুন, অথবা এই ট্যাবটি লুকিয়ে রাখুন।")
                 if (count > 0) Column(Modifier.heightIn(max = 240.dp).verticalScrollCompat()) {
                     tabs.filter { it.id != tab.id }.forEach { other ->
