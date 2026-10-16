@@ -1,5 +1,6 @@
 package com.almamun252.perfectroutine.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -11,5 +12,6 @@ data class UserTab(
     val sortOrder: Int,
     val isVisible: Boolean = true,
     val colorArgb: Long = 0xFF3B82F6,
-    val isQuickList: Boolean = false
+    val isQuickList: Boolean = false,
+    @ColumnInfo(defaultValue = "'folder'") val iconKey: String = "folder"
 )

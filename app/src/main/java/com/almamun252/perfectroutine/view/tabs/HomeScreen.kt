@@ -467,7 +467,7 @@ fun HomeTaskCard(
     val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale("bn", "BD"))
     val deadlineStr = task.deadline?.let { sdf.format(Date(it)) } ?: "ডেডলাইন নেই"
 
-    val tabIcon = if (userTab?.isQuickList == true) Icons.Rounded.FlashOn else Icons.Rounded.Folder
+    val tabIcon = com.almamun252.perfectroutine.view.tabIcon(userTab?.iconKey ?: "folder")
     val tabColor = Color(userTab?.colorArgb ?: 0xFF3B82F6L)
 
     Box(

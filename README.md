@@ -5,12 +5,12 @@ Perfect Routine is an Android productivity app for organizing tasks, managing de
 ## Features
 
 ### User-controlled tabs
-- Home is a permanent overview; other tabs are created and managed in Settings.
-- A fresh install has no predefined task tabs.
+- Home stays in the physical center of the bottom bar; Profile contains tab management and reminder settings.
+- A fresh install starts with Work · Home · Profile. Work can be renamed, hidden, or deleted and is seeded only once.
 - Existing installations retain Learning, Research, Work, Temp, and every historic task/category tab key through a non-destructive 3→4 migration.
-- Rename tabs without changing task membership; choose colors, hide tabs, and reorder them.
+- Rename tabs without changing task membership; choose from 12 icons and colors, hide tabs, and reorder them.
 - Use the common Task list or opt into Quick list mode for any tab.
-- More than four visible tabs use an “আরও” picker to keep the bottom bar usable.
+- The bar uses 3 or 5 slots to keep Home centered, with a tab picker when needed.
 - Hiding only affects navigation: tasks remain in Home, widgets, and reminders.
 - Removing a populated tab requires moving its tasks into another tab, preserving task IDs, attached images, deadlines, and time sessions.
 
@@ -48,7 +48,7 @@ Perfect Routine is an Android productivity app for organizing tasks, managing de
 ### Local data storage
 - Store tasks, categories, and focus-session records using Room.
 - Export Room database schemas.
-- Migrate 2→3 to add task image paths, then 3→4 to add user-managed tabs.
+- Migrate 2→3 to add task image paths, then 3→4 to add user-managed tabs and 4→5 to persist selected icons.
 - Store attached images in app-private storage and save their relative paths in the database.
 - Avoid destructive fallback migrations that could silently erase saved data when the database schema is unknown.
 
@@ -90,8 +90,8 @@ The Android module is configured with the following settings:
 - **Minimum SDK:** Android 8.0 (API 26)
 - **Compile SDK:** 35
 - **Target SDK:** 35
-- **Version name:** 2.2.0
-- **Version code:** 2
+- **Version name:** 2.3.0
+- **Version code:** 3
 
 Use a compatible version of Android Studio and the JDK required by the project's Gradle configuration. The Gradle wrapper and version catalog define the build-tool and dependency versions.
 
@@ -178,16 +178,22 @@ Daffodil International University
 
 No license file is included in this repository. Unless a license is added, users should not assume that redistribution or modification is permitted.
 
-## Version 2.2.0 verification status
+## Version 2.3.0 verification status
 
-The tab-management update includes Android instrumentation tests in `UserTabsTest`
-for fresh installs, v3 migration, stable IDs, rename/hide/reorder, duplicate names,
-and moving populated tabs without deleting task notes or session history.
-SQLite smoke checks passed in the authoring environment. Android compilation and
-instrumentation tests have **not** run: Gradle 9.3.1 could not be downloaded due
-to network restrictions. Run `gradlew.bat :app:assembleDebug :app:testDebugUnitTest`
-and `gradlew.bat :app:connectedDebugAndroidTest` locally before installing.
-Build once to generate schema `4.json`; retain the existing exported schemas.
+The previous 2.2.0 update was built and its 10 device tests passed on the user's
+Vivo V2126 (Android 14). This follow-up is a separate, not yet build-verified update.
+Kotlin syntax parsing, diff checks and SQLite migration smoke checks passed here.
+Android compilation and device tests could not run in this environment because
+Gradle dependencies and the Android SDK are unavailable.
 
-This change implements configurable navigation and settings. Automatic study
-planning, class timetables, and assistant scheduling are not implemented yet.
+Tests now cover default Work creation/deletion, persisted icons, v4 migration,
+and centered navigation for 0–20 tabs. Run:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest
+.\gradlew.bat :app:connectedDebugAndroidTest
+```
+
+Build to generate schema `5.json`; retain all existing exported schemas, including
+locally generated `4.json`. See `docs/PROFILE-UI-UPDATE.md` for acceptance checks.
+Automatic study planning and assistant scheduling are not implemented yet.

@@ -1,5 +1,7 @@
 package com.almamun252.perfectroutine.view
 
+import androidx.activity.compose.BackHandler
+import com.almamun252.perfectroutine.utils.TabNavigation
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -61,23 +63,23 @@ fun MainScreen(
     val visibleTabs = tabs.filter { it.isVisible }
     val selectedTab = tabs.firstOrNull { it.id == selectedTabId && it.isVisible }
     LaunchedEffect(tabs, selectedTabId) {
-        if (selectedTabId != "__home__" && selectedTab == null) selectedTabId = "__home__"
+        if (selectedTabId !in listOf(TabNavigation.HOME, TabNavigation.PROFILE) && selectedTab == null) selectedTabId = "__home__"
     }
     if (showSettings) {
         TabSettingsScreen(tabs, allTasks, taskViewModel, onBack = { showSettings = false })
         return
     }
-    val shownTabs = if (visibleTabs.size > 4) visibleTabs.take(3) else visibleTabs
-    val navItems = buildList {
-        add(NavigationItem("Home", Icons.Rounded.Home, "__home__", Color(0xFF0EA5E9)))
-        shownTabs.forEach { tab ->
-            add(NavigationItem(tab.name, if (tab.isQuickList) Icons.Rounded.FlashOn else Icons.Rounded.Folder,
-                tab.id, Color(tab.colorArgb)))
+    val navItems = TabNavigation.slots(tabs).map { id ->
+        when (id) {
+            TabNavigation.HOME -> NavigationItem("Home", Icons.Rounded.Home, id, Color(0xFF4668D9))
+            TabNavigation.PROFILE -> NavigationItem("Profile", Icons.Rounded.Person, id, Color(0xFF4668D9))
+            TabNavigation.ALL_TABS -> NavigationItem(if (visibleTabs.size > 3) "আরও" else "ট্যাব", Icons.Rounded.GridView, id, Color(0xFF4668D9))
+            else -> tabs.first { it.id == id }.let { tab -> NavigationItem(tab.name, tabIcon(tab.iconKey), tab.id, Color(tab.colorArgb)) }
         }
-        if (visibleTabs.size > 4) add(NavigationItem("আরও", Icons.Rounded.MoreHoriz, "__more__", Color(0xFF64748B)))
     }
     val selectedItemIndex = navItems.indexOfFirst { it.tabName == selectedTabId }
-        .let { if (it >= 0) it else navItems.lastIndex }
+        .let { if (it >= 0) it else navItems.indexOfFirst { it.tabName == TabNavigation.ALL_TABS }.coerceAtLeast(0) }
+    BackHandler(enabled = selectedTabId != TabNavigation.HOME && !showAllTabs) { selectedTabId = TabNavigation.HOME }
 
     // --- টপ বার ও নোটিফিকেশনের স্টেট ---
     var showNotificationSheet by remember { mutableStateOf(false) }
@@ -108,7 +110,7 @@ fun MainScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // বাম পাশের অংশ (ডাইনামিক টাইটেল)
-                    val titleText = selectedTab?.name ?: "ড্যাশবোর্ড"
+                    val titleText = if (selectedTabId == TabNavigation.PROFILE) "Profile" else selectedTab?.name ?: "ড্যাশবোর্ড"
 
                     Text(
                         text = titleText,
@@ -122,19 +124,6 @@ fun MainScreen(
 
                     // ডান পাশের থিম টগল এবং নোটিফিকেশন
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = { showSettings = true },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Settings,
-                                contentDescription = "Settings ও ট্যাব পরিচালনা",
-                                tint = navItems[selectedItemIndex].themeColor
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -166,120 +155,11 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            // --- ডাইনামিক অ্যানিমেটেড নচ (Moving Cutout) ---
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                // প্রতিটি আইটেমের প্রস্থ
-                val itemWidth = maxWidth / navItems.size
-
-                // যেই আইটেম সিলেক্ট করা হবে, নচটি সেই পজিশনে স্লাইড করে চলে যাবে
-                val animatedXOffset by animateDpAsState(
-                    targetValue = itemWidth * selectedItemIndex,
-                    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-                    label = "notch_anim"
-                )
-
-                // ১. ব্যাকগ্রাউন্ড সাদা বার
-                Surface(
-                    color = Color.White,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(70.dp)
-                        .shadow(elevation = 16.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                ) {}
-
-                // ২. ন্যাভ আইটেমগুলো (Icons & Text)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(70.dp)
-                        .align(Alignment.BottomCenter),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    navItems.forEachIndexed { index, item ->
-                        val isSelected = selectedItemIndex == index
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { if (item.tabName == "__more__") showAllTabs = true else selectedTabId = item.tabName }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // আইটেম সিলেক্ট হলে ফ্লাট আইকন হাইড হয়ে যাবে এবং কাটআউট বাটন আসবে
-                            NavItemContent(item = item, isSelected = isSelected)
-                        }
-                    }
-                }
-
-                // ৩. মুভিং কাটআউট এবং ফ্লোটিং বাটন
-                Box(
-                    modifier = Modifier
-                        .width(itemWidth)
-                        .height(98.dp) // 70.dp বারের উপর 28.dp ভাসমান থাকবে
-                        .offset(x = animatedXOffset)
-                        .align(Alignment.BottomStart)
-                ) {
-                    val currentItem = navItems[selectedItemIndex]
-                    // কালার স্মুথ ট্রানজিশনের জন্য
-                    val animatedFabColor by animateColorAsState(
-                        targetValue = currentItem.themeColor,
-                        animationSpec = tween(400),
-                        label = "fab_color"
-                    )
-
-                    // কাটআউটের রিং (স্ক্যাফোল্ডের ব্যাকগ্রাউন্ড কালার দিয়ে সাদা বার "কাটা" হয়েছে)
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .size(76.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFF8FAFC)) // Scaffold Color
-                            .padding(6.dp), // Cutout এর থিকনেস/গ্যাপ
-                        contentAlignment = Alignment.Center
-                    ) {
-                        // আসল রঙিন ফ্লোটিং বাটন
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .shadow(8.dp, CircleShape, spotColor = animatedFabColor)
-                                .clip(CircleShape)
-                                .background(animatedFabColor)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) { if (currentItem.tabName == "__more__") showAllTabs = true },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // আইকন পাল্টানোর স্মুথ অ্যানিমেশন
-                            AnimatedContent(
-                                targetState = currentItem,
-                                transitionSpec = {
-                                    fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                                },
-                                label = "fab_icon"
-                            ) { item ->
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.title,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-                        }
-                    }
-                }
+            CenteredBottomBar(navItems, selectedTabId) { id ->
+                if (id == TabNavigation.ALL_TABS) showAllTabs = true else selectedTabId = id
             }
         }
+
     ) { innerPadding ->
 
         Box(
@@ -295,11 +175,12 @@ fun MainScreen(
             ) { id ->
                 val tab = tabs.firstOrNull { it.id == id }
                 when {
+                    id == TabNavigation.PROFILE -> ProfileScreen(tabs, allTasks) { showSettings = true }
                     id == "__home__" || tab == null -> {
                         Column {
                             if (tabs.isEmpty()) {
-                                TextButton(onClick = { showSettings = true }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("আপনার প্রথম ট্যাব তৈরি করুন · Settings")
+                                TextButton(onClick = { selectedTabId = TabNavigation.PROFILE; showSettings = true }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("নিজের ট্যাব তৈরি করুন · Profile")
                                 }
                             }
                             HomeScreen(allTasks, onTaskStatusChange, onDeleteTask, tabs = tabs) {
@@ -324,12 +205,12 @@ fun MainScreen(
                     item { Text("আমার ট্যাব", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
                     items(visibleTabs, key = { it.id }) { tab ->
                         TextButton(onClick = { selectedTabId = tab.id; showAllTabs = false }, modifier = Modifier.fillMaxWidth()) {
-                            Icon(if (tab.isQuickList) Icons.Rounded.FlashOn else Icons.Rounded.Folder, null, tint = Color(tab.colorArgb))
+                            Icon(tabIcon(tab.iconKey), null, tint = Color(tab.colorArgb))
                             Spacer(Modifier.width(12.dp)); Text(tab.name, Modifier.weight(1f))
                         }
                     }
                     item {
-                        TextButton(onClick = { showAllTabs = false; showSettings = true }) { Text("Settings · ট্যাব পরিচালনা") }
+                        TextButton(onClick = { showAllTabs = false; selectedTabId = TabNavigation.PROFILE; showSettings = true }) { Text("Profile · ট্যাব পরিচালনা") }
                     }
                 }
             }
@@ -351,7 +232,7 @@ fun MainScreen(
                 ) {
                     Text("আপনার নোটিফিকেশন", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E293B))
                     Spacer(modifier = Modifier.height(12.dp))
-                    NotificationSettingsPanel()
+
 
                     if (upcomingReminders.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
@@ -391,32 +272,38 @@ fun MainScreen(
     }
 }
 
-// ⚠️ আনসিলেক্ট করা আইটেমগুলোর সাইজ ছোট করা হয়েছে যাতে স্পেসিং বেশি মনে হয়
 @Composable
-fun NavItemContent(item: NavigationItem, isSelected: Boolean) {
-    AnimatedVisibility(
-        visible = !isSelected,
-        enter = fadeIn(tween(200, delayMillis = 200)) + scaleIn(tween(200, delayMillis = 200)),
-        exit = fadeOut(tween(200)) + scaleOut(tween(200))
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(vertical = 4.dp)
-        ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = item.title,
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(20.dp) // সাইজ 24.dp থেকে কমিয়ে 20.dp করা হয়েছে
-            )
-            Spacer(modifier = Modifier.height(2.dp)) // স্পেস 4.dp থেকে কমিয়ে 2.dp করা হয়েছে
-            Text(
-                text = item.title,
-                color = Color(0xFF94A3B8),
-                fontWeight = FontWeight.Medium,
-                fontSize = 10.sp // ফন্ট সাইজ 11.sp থেকে কমিয়ে 10.sp করা হয়েছে
-            )
+private fun CenteredBottomBar(items: List<NavigationItem>, selectedId: String, onSelect: (String) -> Unit) {
+    Surface(color = Color.White, shadowElevation = 12.dp,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().height(88.dp).padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            items.forEach { item ->
+                val selected = selectedId == item.tabName ||
+                    (item.tabName == TabNavigation.ALL_TABS && items.none { it.tabName == selectedId })
+                Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(item.tabName) }.padding(top = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    if (item.tabName == TabNavigation.HOME) {
+                        Surface(shape = CircleShape, color = Color(0xFF4668D9), shadowElevation = if (selected) 8.dp else 3.dp,
+                            modifier = Modifier.size(52.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(item.icon, item.title, tint = Color.White, modifier = Modifier.size(28.dp))
+                            }
+                        }
+                    } else {
+                        Box(Modifier.size(width = 48.dp, height = 36.dp)
+                            .background(if (selected) item.themeColor.copy(alpha = .12f) else Color.Transparent, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center) {
+                            Icon(item.icon, item.title, tint = if (selected) item.themeColor else Color(0xFF8A96AA), modifier = Modifier.size(24.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(item.title, color = if (selected) item.themeColor else Color(0xFF7B879C),
+                        fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(4.dp))
+                }
+            }
         }
     }
 }

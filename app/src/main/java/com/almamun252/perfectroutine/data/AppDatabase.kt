@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.almamun252.perfectroutine.model.Category
 import com.almamun252.perfectroutine.model.UserTab
 import com.almamun252.perfectroutine.model.Task
@@ -12,11 +13,11 @@ import com.almamun252.perfectroutine.model.TimeSession
 
 /**
  * অ্যাপের মূল ডেটাবেস ক্লাস।
- * এখানে আমাদের তিনটি টেবিল (Task, Category, TimeSession) রেজিস্টার করা হয়েছে।
+ * এখানে আমাদের চারটি টেবিল (Task, Category, TimeSession, UserTab) রেজিস্টার করা হয়েছে।
  */
 @Database(
     entities = [Task::class, Category::class, TimeSession::class, UserTab::class],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(NoteImageConverters::class)
@@ -49,6 +50,13 @@ abstract class AppDatabase : RoomDatabase() {
         internal fun buildDatabase(context: Context, name: String): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
                 .addMigrations(*DatabaseMigrations.ALL)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        // Seed once, only for a new database. Deleting Work never recreates it.
+                        db.execSQL("INSERT INTO user_tabs (id, name, sortOrder, isVisible, colorArgb, isQuickList, iconKey) VALUES ('Work', 'Work', 0, 1, 4282804441, 0, 'work')")
+                    }
+                })
                 .build()
     }
 }

@@ -28,22 +28,33 @@ class UserTabsTest {
         description = "Keep text", priority = "High", taskDate = 1000L,
         imagePaths = listOf("note_images/abcd.img"))
 
-    @Test fun newInstallHasNoPredefinedTabs() = runBlocking {
-        assertTrue(database().userTabDao().getAll().isEmpty())
+    @Test fun newInstallStartsWithEditableWorkAndDoesNotRecreateDeletedDefault() = runBlocking {
+        val db = database()
+        val tab = db.userTabDao().getAll().single()
+        assertEquals("Work", tab.name)
+        assertEquals("work", tab.iconKey)
+        repository(db).saveTab(tab.copy(name = "Projects", iconKey = "code"))
+        assertEquals("code", db.userTabDao().getById(tab.id)!!.iconKey)
+        repository(db).deleteTab(tab.id, null)
+        db.close()
+        val reopened = database()
+        assertTrue(reopened.userTabDao().getAll().isEmpty())
     }
 
     @Test fun renameHideAndReorderKeepStableTaskMembership() = runBlocking {
         val db = database()
+        db.userTabDao().delete("Work") // Isolate the custom-tab scenarios from the seeded default.
         val repo = repository(db)
         repo.saveTab(UserTab("", "University", 0))
         repo.saveTab(UserTab("", "Personal", 0))
         val tab = db.userTabDao().getAll().first()
         val taskId = db.taskDao().insertTask(task(tab.id)).toInt()
-        repo.saveTab(tab.copy(name = "বিশ্ববিদ্যালয়", isVisible = false))
+        repo.saveTab(tab.copy(name = "বিশ্ববিদ্যালয়", isVisible = false, iconKey = "school"))
         repo.moveTab(tab.id, 1)
         assertEquals(tab.id, db.taskDao().getTaskById(taskId)!!.tabType)
         assertEquals("বিশ্ববিদ্যালয়", db.userTabDao().getById(tab.id)!!.name)
         assertFalse(db.userTabDao().getById(tab.id)!!.isVisible)
+        assertEquals("school", db.userTabDao().getById(tab.id)!!.iconKey)
         assertEquals(tab.id, db.userTabDao().getAll().last().id)
         try {
             repo.saveTab(UserTab("", "PERSONAL", 0))
@@ -54,6 +65,7 @@ class UserTabsTest {
 
     @Test fun populatedTabRequiresDestinationAndMovesWithoutDeletingHistory() = runBlocking {
         val db = database()
+        db.userTabDao().delete("Work") // Isolate the custom-tab scenarios from the seeded default.
         val repo = repository(db)
         repo.saveTab(UserTab("", "Source", 0))
         repo.saveTab(UserTab("", "Destination", 0))
@@ -103,4 +115,33 @@ class UserTabsTest {
         assertTrue(db.userTabDao().getById("Temp")!!.isQuickList)
         assertEquals(1000L, db.timeSessionDao().getTotalDurationForTask(11).first())
     }
+    @Test fun versionFourUpgradePreservesNamesOrderVisibilityAndTaskData() = runBlocking {
+        val schema = InstrumentationRegistry.getInstrumentation().context.assets
+            .open("com.almamun252.perfectroutine.data.AppDatabase/3.json")
+            .bufferedReader().use { JSONObject(it.readText()).getJSONObject("database") }
+        val path = context.getDatabasePath(name)
+        path.parentFile?.mkdirs()
+        SQLiteDatabase.openOrCreateDatabase(path, null).use { sql ->
+            val entities = schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val entity = entities.getJSONObject(i)
+                sql.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", entity.getString("tableName")))
+            }
+            sql.execSQL("CREATE TABLE user_tabs (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, sortOrder INTEGER NOT NULL, isVisible INTEGER NOT NULL, colorArgb INTEGER NOT NULL, isQuickList INTEGER NOT NULL)")
+            sql.execSQL("INSERT INTO user_tabs VALUES ('Work', 'My Projects', 8, 0, 4283215696, 0)")
+            sql.execSQL("INSERT INTO user_tabs VALUES ('custom-id', 'বাংলা', 2, 1, 4283215696, 1)")
+            sql.execSQL("INSERT INTO task_table VALUES (11, 'Keep task', 'Keep note', 'Java', 'Work', 'High', 0, 1000, 2000, '[]')")
+            sql.version = 4
+        }
+        val db = database()
+        val work = db.userTabDao().getById("Work")!!
+        assertEquals("My Projects", work.name)
+        assertEquals(8, work.sortOrder)
+        assertFalse(work.isVisible)
+        assertEquals("work", work.iconKey)
+        assertEquals("flash", db.userTabDao().getById("custom-id")!!.iconKey)
+        assertEquals(2, db.userTabDao().getAll().size)
+        assertEquals("Keep note", db.taskDao().getTaskById(11)!!.description)
+    }
+
 }

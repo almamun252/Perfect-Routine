@@ -1,17 +1,14 @@
 # Room schema history
 
-Keep released `2.json` and `3.json` unchanged. Version 4 introduces `user_tabs`
-through `MIGRATION_3_4`, after the existing image-path `MIGRATION_2_3`.
-Run the Android build to export `4.json` and commit that generated file.
-The authoring environment could not download Gradle, so schema 4 is not fabricated.
+Keep all released schemas unchanged, including locally generated `4.json`.
+Version 4 adds user_tabs; version 5 adds iconKey with the SQL default 'folder'.
+The 4→5 migration assigns legacy icons while preserving tab IDs, names, order,
+visibility, colors and tasks. A fresh database seeds one editable Work tab in
+onCreate; upgrades and reopening a database never recreate a deleted Work tab.
 
-A new installation starts with no task tabs. Migration 3→4 preserves legacy tabs
-and any distinct task/category tab key, without editing existing task rows.
-`UserTabsTest` seeds the exported v3 schema, opens it with the production Room
-builder, and checks migration and preservation. Existing migration tests also
-exercise 2→current. Run instrumentation tests on a device before release.
-
-Unknown versions must never silently erase user data. Version 1's released schema
-is unknown; no migration is guessed for it. Every future schema change needs a
-new version, a forward migration, an exported schema, and preservation tests.
-Never replace a released schema JSON or enable destructive fallback to pass a test.
+Build to generate `5.json` and retain it with schema history. The authoring
+machine cannot run the Android build, so no schema JSON is fabricated here.
+UserTabsTest covers v3 and v4 upgrades and fresh-install behavior using the
+production Room builder. Existing image migration tests exercise 2→current.
+Run device tests before release. Version 1's schema remains unknown; never
+use destructive fallback or replace a released schema to pass validation.

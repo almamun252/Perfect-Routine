@@ -10,7 +10,7 @@ object DatabaseMigrations {
             db.execSQL("ALTER TABLE task_table ADD COLUMN imagePaths TEXT NOT NULL DEFAULT '[]'")
         }
     }
-    // Only upgrading installations keep the old navigation. New installs start empty.
+    // Upgrades from v3 retain all legacy tabs; fresh-install defaults are seeded in AppDatabase.
     val MIGRATION_3_4: Migration = object : Migration(3, 4) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("CREATE TABLE IF NOT EXISTS user_tabs (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, sortOrder INTEGER NOT NULL, isVisible INTEGER NOT NULL, colorArgb INTEGER NOT NULL, isQuickList INTEGER NOT NULL)")
@@ -31,5 +31,11 @@ object DatabaseMigrations {
             }
         }
     }
-    val ALL: Array<Migration> = arrayOf(MIGRATION_2_3, MIGRATION_3_4)
+    val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE user_tabs ADD COLUMN iconKey TEXT NOT NULL DEFAULT 'folder'")
+            db.execSQL("UPDATE user_tabs SET iconKey = CASE id WHEN 'Learning' THEN 'school' WHEN 'Research' THEN 'science' WHEN 'Work' THEN 'work' WHEN 'Temp' THEN 'flash' ELSE CASE WHEN isQuickList = 1 THEN 'flash' ELSE 'folder' END END")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }
