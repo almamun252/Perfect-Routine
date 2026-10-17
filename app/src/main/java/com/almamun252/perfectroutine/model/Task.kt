@@ -26,5 +26,11 @@ data class Task(
     val deadline: Long? = null,     // কাজ শেষ করার সময়
 
     @ColumnInfo(defaultValue = "'[]'")
-    val imagePaths: List<String> = emptyList()
+    val imagePaths: List<String> = emptyList(),
+
+    @ColumnInfo(defaultValue = "NULL")
+    val startDate: Long? = null,
+
+    @ColumnInfo(defaultValue = "NULL")
+    val sortOrder: Long? = null
 )

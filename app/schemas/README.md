@@ -1,14 +1,14 @@
 # Room schema history
 
-Keep all released schemas unchanged, including locally generated `4.json`.
-Version 4 adds user_tabs; version 5 adds iconKey with the SQL default 'folder'.
-The 4→5 migration assigns legacy icons while preserving tab IDs, names, order,
-visibility, colors and tasks. A fresh database seeds one editable Work tab in
-onCreate; upgrades and reopening a database never recreate a deleted Work tab.
+Preserve every released schema, including locally generated 4.json and 5.json.
+Version 6 adds nullable INTEGER columns startDate and sortOrder to task_table.
+MIGRATION_5_6 initializes both from the stored taskDate, leaving all prior columns
+and task IDs unchanged. Future task creation keeps creation/start/order separate.
+If an older version already changed taskDate while reordering, the original date
+cannot be reconstructed; migration preserves the value actually stored.
 
-Build to generate `5.json` and retain it with schema history. The authoring
-machine cannot run the Android build, so no schema JSON is fabricated here.
-UserTabsTest covers v3 and v4 upgrades and fresh-install behavior using the
-production Room builder. Existing image migration tests exercise 2→current.
-Run device tests before release. Version 1's schema remains unknown; never
-use destructive fallback or replace a released schema to pass validation.
+Build to generate 6.json, then commit it with source. This source update does not
+fabricate or overwrite schema JSON. TaskScheduleMigrationTest covers v5 upgrade,
+order-only updates against stale task snapshots and invalid schedule rejection.
+Earlier tests exercise v2/v3/v4→current migrations and unknown-version preservation.
+Fresh installs still seed Work once. No destructive fallback is enabled.

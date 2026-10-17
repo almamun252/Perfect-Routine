@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimerScreen(
+    saving: Boolean = false,
     taskTitle: String,
     timeMillis: Long,
     sessionDuration: Long, // কতক্ষণ কাজ হলো
@@ -53,6 +54,16 @@ fun TimerScreen(
     onSaveSession: (Boolean) -> Unit, // টাস্ক সম্পন্ন হয়েছে কি না সেই প্যারামিটার সহ
     onNavigateBack: () -> Unit
 ) {
+    androidx.activity.compose.BackHandler(enabled = saving) { }
+    if (saving) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Text("সেশন সেভ হচ্ছে…")
+            }
+        }
+        return
+    }
     val bgColor = Color(0xFF0F172A)
     val surfaceColor = Color(0xFF1E293B)
     val textColor = Color(0xFFF8FAFC)
@@ -162,7 +173,7 @@ fun TimerScreen(
                     OutlinedTextField(
                         value = timeInput,
                         onValueChange = { if (it.all { char -> char.isDigit() }) timeInput = it },
-                        label = { Text("মিনিট (যেমন: 30)") },
+                        label = { Text("মিনিট (১–১৪৪০)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -171,7 +182,7 @@ fun TimerScreen(
                 confirmButton = {
                     Button(onClick = {
                         val mins = timeInput.toIntOrNull() ?: 0
-                        if (mins > 0) {
+                        if (mins in 1..1440) {
                             onSetCustomTime(mins)
                             showTimePicker = false
                         }

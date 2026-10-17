@@ -48,7 +48,7 @@ Perfect Routine is an Android productivity app for organizing tasks, managing de
 ### Local data storage
 - Store tasks, categories, and focus-session records using Room.
 - Export Room database schemas.
-- Migrate 2→3 to add task image paths, then 3→4 to add user-managed tabs and 4→5 to persist selected icons.
+- Migrate 2→3 to add task image paths, then 3→4 to add user-managed tabs and 4→5 to persist selected icons, and 5→6 to separate start dates and quick-list order.
 - Store attached images in app-private storage and save their relative paths in the database.
 - Avoid destructive fallback migrations that could silently erase saved data when the database schema is unknown.
 
@@ -90,8 +90,8 @@ The Android module is configured with the following settings:
 - **Minimum SDK:** Android 8.0 (API 26)
 - **Compile SDK:** 35
 - **Target SDK:** 35
-- **Version name:** 2.3.0
-- **Version code:** 3
+- **Version name:** 2.4.0
+- **Version code:** 4
 
 Use a compatible version of Android Studio and the JDK required by the project's Gradle configuration. The Gradle wrapper and version catalog define the build-tool and dependency versions.
 
@@ -178,22 +178,31 @@ Daffodil International University
 
 No license file is included in this repository. Unless a license is added, users should not assume that redistribution or modification is permitted.
 
-## Version 2.3.0 verification status
+## Version 2.4.0 — task schedules and reliability review
 
-The previous 2.2.0 update was built and its 10 device tests passed on the user's
-Vivo V2126 (Android 14). This follow-up is a separate, not yet build-verified update.
-Kotlin syntax parsing, diff checks and SQLite migration smoke checks passed here.
-Android compilation and device tests could not run in this environment because
-Gradle dependencies and the Android SDK are unavailable.
+- Choose a start date/time and optional deadline in both task and quick-list forms.
+  Omitted start uses the save time; edits retain the original start unless changed.
+- Creation timestamp, start timestamp and quick-list order are separate. Reordering
+  cannot change dates, notes, completion status or a newer task edit.
+- Date-picker values are converted from UTC calendar dates to local wall time.
+  A newly selected deadline before start is rejected. Unchanged historic overdue
+  schedules remain editable.
+- Profile uses a centered avatar, simple name editing, compact counts and settings.
+- Quick-list titles open task details/edit. Save errors are surfaced.
+- Focus timer uses monotonic elapsed time, preserves accumulated duration across
+  mode switches, and awaits session storage before reporting success.
 
-Tests now cover default Work creation/deletion, persisted icons, v4 migration,
-and centered navigation for 0–20 tabs. Run:
+The user's 2.3.0 build/unit tests and 11 Android device tests passed on V2126,
+Android 14. Version 2.4.0 is a NEW source update requiring its own validation.
+The authoring environment cannot compile/render Android here. See
+`docs/APP-AUDIT-2.4.0.md` for reviewed behavior, limitations and a device checklist.
 
 ```powershell
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest
 .\gradlew.bat :app:connectedDebugAndroidTest
 ```
 
-Build to generate schema `5.json`; retain all existing exported schemas, including
-locally generated `4.json`. See `docs/PROFILE-UI-UPDATE.md` for acceptance checks.
-Automatic study planning and assistant scheduling are not implemented yet.
+Retain exported schemas 2–5 and generate `6.json` during the build. Never uninstall
+or clear phone data to resolve a migration failure. Keep the same signing key.
+The personal-assistant scheduler and process-death recovery for active focus
+sessions remain future work; this review is not a guarantee of a bug-free app.

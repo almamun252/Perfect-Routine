@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -35,28 +34,25 @@ fun ProfileScreen(tabs: List<UserTab>, tasks: List<Task>, onManageTabs: () -> Un
     val completed = tasks.count { it.isCompleted }
     Column(Modifier.fillMaxSize().background(Color(0xFFF6F8FC)).verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        Surface(shape = RoundedCornerShape(26.dp), color = Color.Transparent) {
-            Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF172D52), Color(0xFF355FC0))))
-                .padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(62.dp).background(Color.White.copy(alpha = .16f), CircleShape), contentAlignment = Alignment.Center) {
-                        if (name.isBlank()) Icon(Icons.Rounded.Person, null, tint = Color.White, modifier = Modifier.size(34.dp))
-                        else Text(name.take(1).uppercase(), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(name.ifBlank { "আমার প্রোফাইল" }, color = Color.White, fontSize = 21.sp,
-                            fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("আপনার সময়, আপনার মতো", color = Color(0xFFCFDEFF), fontSize = 13.sp)
-                    }
-                    IconButton(onClick = { editingName = true }) { Icon(Icons.Rounded.Edit, "নাম পরিবর্তন", tint = Color.White) }
-                }
-                HorizontalDivider(color = Color.White.copy(alpha = .18f))
-                Row(Modifier.fillMaxWidth()) {
-                    ProfileStat("${tasks.size - completed}", "বাকি কাজ", Modifier.weight(1f))
-                    ProfileStat("$completed", "সম্পন্ন", Modifier.weight(1f))
-                    ProfileStat("${tabs.size}", "আমার ট্যাব", Modifier.weight(1f))
-                }
+        Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(80.dp).background(Color(0xFFE9EEFC), CircleShape), contentAlignment = Alignment.Center) {
+                if (name.isBlank()) Icon(Icons.Rounded.Person, null, tint = Color(0xFF4668D9), modifier = Modifier.size(42.dp))
+                else Text(name.take(1).uppercase(), color = Color(0xFF4668D9), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(name.ifBlank { "আপনার নাম" }, color = Color(0xFF172D52), fontSize = 24.sp,
+                fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            TextButton(onClick = { editingName = true }) {
+                Icon(Icons.Rounded.Edit, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("প্রোফাইল সম্পাদনা")
+            }
+        }
+        Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 20.dp)) {
+                ProfileStat("${tasks.size - completed}", "বাকি কাজ", Modifier.weight(1f))
+                ProfileStat("$completed", "সম্পন্ন", Modifier.weight(1f))
+                ProfileStat("${tabs.size}", "ট্যাব", Modifier.weight(1f))
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -69,14 +65,8 @@ fun ProfileScreen(tabs: List<UserTab>, tasks: List<Task>, onManageTabs: () -> Un
                 Column(Modifier.padding(16.dp)) { NotificationSettingsPanel() }
             }
         }
-        Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFFEAF0FC)) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-                Icon(Icons.Rounded.TipsAndUpdates, null, tint = Color(0xFF4668D9), modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(12.dp))
-                Text("Work দিয়ে শুরু করুন। পড়াশোনা, project বা ব্যক্তিগত কাজের জন্য নিজের ট্যাব যোগ করতে পারেন।",
-                    color = Color(0xFF485976), fontSize = 13.sp)
-            }
-        }
+        Text("Perfect Routine · 2.4.0", modifier = Modifier.align(Alignment.CenterHorizontally),
+            color = Color(0xFF7B879C), fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
     }
     if (editingName) {
@@ -95,8 +85,8 @@ fun ProfileScreen(tabs: List<UserTab>, tasks: List<Task>, onManageTabs: () -> Un
 @Composable
 private fun ProfileStat(value: String, label: String, modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = Color(0xFFCFDEFF), fontSize = 12.sp)
+        Text(value, color = Color(0xFF172D52), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color(0xFF7B879C), fontSize = 12.sp)
     }
 }
 

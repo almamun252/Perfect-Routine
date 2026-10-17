@@ -14,6 +14,9 @@ interface TaskDao {
     @Query("SELECT * FROM task_table WHERE id = :taskId LIMIT 1")
     suspend fun getTaskById(taskId: Int): Task?
 
+    @Query("UPDATE task_table SET sortOrder = :position WHERE id = :taskId")
+    suspend fun updateSortOrder(taskId: Int, position: Long)
+
     // টাস্ক ডিলিট করা
     @Delete
     suspend fun deleteTask(task: Task)

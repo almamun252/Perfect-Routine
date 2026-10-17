@@ -15,6 +15,12 @@ import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalDensity
+import com.almamun252.perfectroutine.view.TaskScheduleFields
+import com.almamun252.perfectroutine.utils.TaskSchedule
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -32,10 +38,10 @@ import com.almamun252.perfectroutine.model.Task
 import com.almamun252.perfectroutine.viewmodel.TaskViewModel
 
 @Composable
-fun TempScreen(viewModel: TaskViewModel, tabId: String, tabName: String, tasks: List<Task>, onNavigateToTimer: (Task) -> Unit) {
-    val tempTasks = tasks.filter { it.tabType == tabId }.sortedByDescending { it.taskDate }
+fun TempScreen(viewModel: TaskViewModel, tabId: String, tabName: String, tasks: List<Task>, onOpenTask: (Task) -> Unit) {
+    val tempTasks = tasks.filter { it.tabType == tabId }.sortedByDescending { it.sortOrder ?: it.taskDate }
 
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var quickSaving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -44,6 +50,9 @@ fun TempScreen(viewModel: TaskViewModel, tabId: String, tabName: String, tasks: 
 
     // ম্যানুয়াল সর্টিং (Drag and Drop) এর জন্য লোকাল স্টেট
     var localTasks by remember(tempTasks) { mutableStateOf(tempTasks.filter { !it.isCompleted }) }
+
+    val latestTasks by rememberUpdatedState(localTasks)
+    val dragThreshold = with(LocalDensity.current) { 48.dp.toPx() }
 
     Scaffold(
         floatingActionButton = {
@@ -96,32 +105,22 @@ fun TempScreen(viewModel: TaskViewModel, tabId: String, tabName: String, tasks: 
                             task = task,
                             elevation = elevation,
                             onCompleteClick = { taskToConfirmComplete = task },
-                            modifier = Modifier.pointerInput(Unit) {
+                            onOpen = { onOpenTask(task) },
+                            modifier = Modifier.pointerInput(task.id) {
+                                var distance = 0f
                                 detectDragGesturesAfterLongPress(
-                                    onDragStart = { isDragging = true },
-                                    onDragEnd = {
-                                        isDragging = false
-                                        // ড্র্যাগ শেষ হলে ডাটাবেসে নতুন সিরিয়াল সেভ করা হবে
-                                        viewModel.updateTasksOrder(localTasks)
-                                    },
-                                    onDragCancel = { isDragging = false },
-                                    onDrag = { change, dragAmount ->
+                                    onDragStart = { isDragging = true; distance = 0f },
+                                    onDragEnd = { isDragging = false; viewModel.updateTasksOrder(latestTasks) },
+                                    onDragCancel = { isDragging = false; viewModel.updateTasksOrder(latestTasks) },
+                                    onDrag = { change, amount ->
                                         change.consume()
-                                        // নিচে নামালে (y > 0) পরের আইটেমের সাথে সোয়াপ হবে
-                                        if (dragAmount.y > 20f && index < localTasks.size - 1) {
-                                            val newList = localTasks.toMutableList()
-                                            val temp = newList[index]
-                                            newList[index] = newList[index + 1]
-                                            newList[index + 1] = temp
-                                            localTasks = newList
-                                        }
-                                        // উপরে উঠালে (y < 0) আগের আইটেমের সাথে সোয়াপ হবে
-                                        else if (dragAmount.y < -20f && index > 0) {
-                                            val newList = localTasks.toMutableList()
-                                            val temp = newList[index]
-                                            newList[index] = newList[index - 1]
-                                            newList[index - 1] = temp
-                                            localTasks = newList
+                                        distance += amount.y
+                                        val from = latestTasks.indexOfFirst { it.id == task.id }
+                                        val direction = if (distance > dragThreshold) 1 else if (distance < -dragThreshold) -1 else 0
+                                        val to = from + direction
+                                        if (direction != 0 && from >= 0 && to in latestTasks.indices) {
+                                            localTasks = latestTasks.toMutableList().apply { add(to, removeAt(from)) }
+                                            distance = 0f
                                         }
                                     }
                                 )
@@ -135,23 +134,26 @@ fun TempScreen(viewModel: TaskViewModel, tabId: String, tabName: String, tasks: 
 
     // ১. কুইক অ্যাড টাস্ক ডায়ালগ
     if (showAddDialog) {
+        val requestKey = rememberSaveable { java.util.UUID.randomUUID().toString() }
         QuickAddTempDialog(
             onDismiss = { if (!quickSaving) showAddDialog = false },
             saving = quickSaving,
-            onSave = { title, note, priority ->
+            onSave = { title, note, priority, start, deadline ->
                 val newTask = Task(
                     title = title,
                     description = note,
                     subjectName = "Quick", // ডিফল্ট সাবজেক্ট
                     priority = priority,
                     tabType = tabId, // এটি হোম স্ক্রিন থেকে আলাদা রাখবে
-                    taskDate = System.currentTimeMillis()
+                    taskDate = System.currentTimeMillis(),
+                    startDate = start,
+                    deadline = deadline
                 )
                 if (!quickSaving) {
                     quickSaving = true
                     scope.launch {
                         try {
-                            viewModel.saveTask(newTask, java.util.UUID.randomUUID().toString())
+                            viewModel.saveTask(newTask, requestKey)
                             showAddDialog = false
                         } catch (e: CancellationException) {
                             throw e
@@ -198,6 +200,7 @@ fun TempTaskCard(
     task: Task,
     elevation: androidx.compose.ui.unit.Dp,
     onCompleteClick: () -> Unit,
+    onOpen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val priorityColor = when (task.priority) {
@@ -230,7 +233,7 @@ fun TempTaskCard(
             Spacer(modifier = Modifier.width(12.dp))
 
             // কাজের নাম ও নোট
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).clickable(onClick = onOpen)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(priorityColor))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -263,17 +266,20 @@ fun TempTaskCard(
 }
 
 @Composable
-fun QuickAddTempDialog(onDismiss: () -> Unit, saving: Boolean = false, onSave: (String, String, String) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
-    var priority by remember { mutableStateOf("Medium") }
+fun QuickAddTempDialog(onDismiss: () -> Unit, saving: Boolean = false, onSave: (String, String, String, Long, Long?) -> Unit) {
+    var title by rememberSaveable { mutableStateOf("") }
+    var note by rememberSaveable { mutableStateOf("") }
+    var priority by rememberSaveable { mutableStateOf("Medium") }
 
+    var start by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deadline by rememberSaveable { mutableStateOf<Long?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
         title = { Text("নতুন কুইক টাস্ক", fontWeight = FontWeight.Bold) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -289,6 +295,9 @@ fun QuickAddTempDialog(onDismiss: () -> Unit, saving: Boolean = false, onSave: (
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+                TaskScheduleFields(start, deadline, !saving, { start = it; error = null }, { deadline = it; error = null })
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                Spacer(Modifier.height(16.dp))
                 Text("প্রায়োরিটি:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -300,7 +309,11 @@ fun QuickAddTempDialog(onDismiss: () -> Unit, saving: Boolean = false, onSave: (
         },
         confirmButton = {
             Button(
-                onClick = { if (title.isNotBlank()) onSave(title, note, priority) },
+                onClick = {
+                    val resolved = start ?: System.currentTimeMillis()
+                    if (TaskSchedule.invalid(resolved, deadline)) error = "শেষের সময় শুরুর সময়ের আগে হতে পারে না।"
+                    else if (title.isNotBlank()) onSave(title.trim(), note.trim(), priority, resolved, deadline)
+                },
                 enabled = !saving && title.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
             ) { Text("সেভ করুন") }

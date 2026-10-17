@@ -37,5 +37,12 @@ object DatabaseMigrations {
             db.execSQL("UPDATE user_tabs SET iconKey = CASE id WHEN 'Learning' THEN 'school' WHEN 'Research' THEN 'science' WHEN 'Work' THEN 'work' WHEN 'Temp' THEN 'flash' ELSE CASE WHEN isQuickList = 1 THEN 'flash' ELSE 'folder' END END")
         }
     }
-    val ALL: Array<Migration> = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE task_table ADD COLUMN startDate INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE task_table ADD COLUMN sortOrder INTEGER DEFAULT NULL")
+            db.execSQL("UPDATE task_table SET startDate = taskDate, sortOrder = taskDate")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }

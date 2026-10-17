@@ -11,6 +11,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -85,6 +91,11 @@ class MainActivity : ComponentActivity() {
                         // ViewModels ইনিশিয়ালাইজ করা
                         val taskViewModel: TaskViewModel = viewModel(factory = viewModelFactory)
                         val timerViewModel: TimerViewModel = viewModel(factory = viewModelFactory)
+                        LaunchedEffect(taskViewModel) {
+                            taskViewModel.errors.collect { message ->
+                                Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+                            }
+                        }
 
                         // ডেটাবেস থেকে স্টেটগুলো কালেক্ট করা
                         val allTasks by taskViewModel.allTasks.collectAsState()
@@ -168,9 +179,28 @@ class MainActivity : ComponentActivity() {
                                     val currentMode by timerViewModel.currentMode.collectAsState()
                                     val context = LocalContext.current
 
+                                    var timerReady by remember(taskId) { mutableStateOf(false) }
+                                    var timerError by remember(taskId) { mutableStateOf(false) }
+                                    var sessionSaving by remember { mutableStateOf(false) }
+                                    val timerScope = rememberCoroutineScope()
+                                    LaunchedEffect(taskId) {
+                                        try {
+                                            timerViewModel.prepareTask(context, taskId)
+                                            timerReady = true
+                                        } catch (cancelled: CancellationException) { throw cancelled }
+                                        catch (_: Exception) { timerError = true }
+                                    }
+                                    if (!timerReady) {
+                                        androidx.compose.foundation.layout.Column {
+                                            androidx.compose.material3.Text(if (timerError) "আগের সেশন সেভ হয়নি। ফিরে গিয়ে আবার চেষ্টা করুন।" else "টাইমার খুলছে…")
+                                            androidx.compose.material3.TextButton(onClick = { navController.popBackStack() }) { androidx.compose.material3.Text("ফিরে যান") }
+                                        }
+                                        return@composable
+                                    }
                                     val themeColor = Color(tabs.firstOrNull { it.id == task.tabType }?.colorArgb ?: 0xFF3B82F6L)
 
                                     TimerScreen(
+                                        saving = sessionSaving,
                                         taskTitle = task.title,
                                         timeMillis = timeMillis,
                                         sessionDuration = sessionDuration,
@@ -183,13 +213,20 @@ class MainActivity : ComponentActivity() {
                                         onPlayPauseClick = { timerViewModel.toggleTimer(context, task.id, task.title) },
                                         onPauseTimer = { timerViewModel.pauseTimer(context) },
                                         onSaveSession = { isCompleted ->
-                                            // --- আসল ফিক্স: এখানে কমপ্লিট লজিক কাজ করবে ---
-                                            if (isCompleted) {
-                                                taskViewModel.updateTaskStatus(task, true) // কাজ সম্পন্ন করা হলো
+                                            if (!sessionSaving) {
+                                                sessionSaving = true
+                                                timerScope.launch {
+                                                    try {
+                                                        timerViewModel.stopAndSaveTimer(context, task.id)
+                                                        if (isCompleted) taskViewModel.updateTaskStatus(task, true)
+                                                        Toast.makeText(context, "সেশন সেভ করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                                                        navController.popBackStack()
+                                                    } catch (cancelled: CancellationException) { throw cancelled }
+                                                    catch (_: Exception) {
+                                                        Toast.makeText(context, "সেশন সেভ হয়নি। আবার চেষ্টা করুন।", Toast.LENGTH_LONG).show()
+                                                    } finally { sessionSaving = false }
+                                                }
                                             }
-                                            timerViewModel.stopAndSaveTimer(context, task.id) // টাইম সেভ করা হলো
-                                            Toast.makeText(context, "সেশন সেভ করা হয়েছে!", Toast.LENGTH_SHORT).show()
-                                            navController.popBackStack()
                                         },
                                         onNavigateBack = {
                                             navController.popBackStack()
@@ -217,10 +254,19 @@ class MainActivity : ComponentActivity() {
                                     allTasks.find { it.id == taskId }
                                 } else null
 
+                                if (taskId != -1 && existingTask == null) {
+                                    androidx.compose.foundation.layout.Column {
+                                        androidx.compose.material3.Text("কাজটি লোড হচ্ছে অথবা সরানো হয়েছে।")
+                                        androidx.compose.material3.TextButton(onClick = { navController.popBackStack() }) {
+                                            androidx.compose.material3.Text("ফিরে যান")
+                                        }
+                                    }
+                                    return@composable
+                                }
                                 val resolvedTab = tabs.firstOrNull { it.id == (existingTask?.tabType ?: tabType) }
                                 if (resolvedTab == null) {
                                     androidx.compose.foundation.layout.Column {
-                                        androidx.compose.material3.Text("ট্যাবটি পাওয়া যায়নি। Settings থেকে একটি ট্যাব তৈরি বা নির্বাচন করুন।")
+                                        androidx.compose.material3.Text("ট্যাবটি পাওয়া যায়নি। Profile থেকে একটি ট্যাব তৈরি বা নির্বাচন করুন।")
                                         androidx.compose.material3.TextButton(onClick = { navController.popBackStack() }) {
                                             androidx.compose.material3.Text("ফিরে যান")
                                         }

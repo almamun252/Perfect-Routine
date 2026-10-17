@@ -94,11 +94,18 @@ class RoutineRepository(
     suspend fun insertTask(task: Task) = withContext(Dispatchers.IO + NonCancellable) {
         imageWriteMutex.withLock {
             val previous = if (task.id != 0) taskDao.getTaskById(task.id) else null
+            require(task.id == 0 || previous != null) { "কাজটি আর নেই।" }
+            val resolvedStart = task.startDate ?: previous?.startDate ?: task.taskDate
+            // Existing historical deadlines remain editable when the schedule is unchanged.
+            val scheduleChanged = previous == null || resolvedStart != (previous.startDate ?: previous.taskDate) || task.deadline != previous.deadline
+            require(!scheduleChanged || task.deadline == null || task.deadline >= resolvedStart) {
+                "শেষের সময় শুরুর সময়ের আগে হতে পারে না।"
+            }
             val images = NoteImageStore.prepare(context, task.imagePaths)
             val id = try {
                 database.withTransaction {
                     require(tabDao.getById(task.tabType) != null) { "ট্যাবটি সরানো হয়েছে। কাজটি আবার খুলুন।" }
-                    val savedId = taskDao.insertTask(task.copy(imagePaths = images.paths)).toInt()
+                    val savedId = taskDao.insertTask(task.copy(imagePaths = images.paths, startDate = resolvedStart, sortOrder = previous?.sortOrder ?: task.sortOrder ?: task.taskDate)).toInt()
                     if (previous == null || previous.subjectName != task.subjectName || previous.tabType != task.tabType) {
                         categoryDao.ensureCategory(task.subjectName, task.tabType)
                     }
@@ -146,10 +153,17 @@ class RoutineRepository(
     // কাজের স্ট্যাটাস আপডেট করা (যেমন: পেন্ডিং থেকে সম্পন্ন)
     suspend fun updateTaskStatus(taskId: Int, completed: Boolean) {
         taskDao.updateTaskStatus(taskId, completed)
-        TaskReminderScheduler.reconcileTask(context, taskId)
-        RoutineTaskWidget.refreshAll(context)
+        refreshTask(taskId)
     }
 
+    suspend fun updateTasksOrder(tasks: List<Task>) {
+        database.withTransaction {
+            val top = System.currentTimeMillis()
+            tasks.distinctBy { it.id }.forEachIndexed { index, task ->
+                taskDao.updateSortOrder(task.id, top - index)
+            }
+        }
+    }
 
     // ==========================================
     //         Category Suggestions

@@ -11,12 +11,25 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 /**
  * TaskViewModel মূলত UI-তে ডেটা সরবরাহ করে এবং ইউজার অ্যাকশন অনুযায়ী
  * রিপোজিটরি ব্যবহার করে ডেটাবেসে পরিবর্তন আনে।
  */
 class TaskViewModel(private val repository: RoutineRepository) : ViewModel() {
+    private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val errors = _errors.asSharedFlow()
+    private fun perform(action: suspend () -> Unit) {
+        viewModelScope.launch {
+            try { action() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { _errors.emit("পরিবর্তন সেভ হয়নি। আবার চেষ্টা করুন।") }
+        }
+    }
+
     val tabs = repository.getTabs().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     suspend fun saveTab(tab: com.almamun252.perfectroutine.model.UserTab) = repository.saveTab(tab)
     suspend fun moveTab(id: String, direction: Int) = repository.moveTab(id, direction)
@@ -62,7 +75,7 @@ class TaskViewModel(private val repository: RoutineRepository) : ViewModel() {
 
     // নতুন কাজ যোগ করা
     fun addTask(task: Task) {
-        viewModelScope.launch { repository.insertTask(task) }
+        perform { repository.insertTask(task) }
     }
 
     // A configuration change must not duplicate a new task if its save already committed.
@@ -82,26 +95,22 @@ class TaskViewModel(private val repository: RoutineRepository) : ViewModel() {
 
     // কাজ ডিলিট করা
     fun deleteTask(task: Task) {
-        viewModelScope.launch {
+        perform {
             repository.deleteTask(task)
         }
     }
 
     // কাজের স্ট্যাটাস (পেন্ডিং/সম্পন্ন) আপডেট করা
     fun updateTaskStatus(task: Task, isCompleted: Boolean) {
-        viewModelScope.launch {
+        perform {
             repository.updateTaskStatus(task.id, isCompleted)
         }
     }
 
     // টেম্পোরারি টাস্কগুলোর সিরিয়াল (Position) আপডেট করা
     fun updateTasksOrder(tasks: List<Task>) {
-        viewModelScope.launch {
-            tasks.forEachIndexed { index, task ->
-                // ড্র্যাগ এন্ড ড্রপের সিরিয়াল ঠিক রাখতে taskDate কাস্টমাইজ করে আপডেট করা হচ্ছে
-                val updatedTask = task.copy(taskDate = System.currentTimeMillis() - (index * 1000L))
-                repository.insertTask(updatedTask) // REPLACE Conflict Strategy থাকায় এটি আপডেট হয়ে যাবে
-            }
+        perform {
+            repository.updateTasksOrder(tasks)
         }
     }
 

@@ -1,6 +1,8 @@
 package com.almamun252.perfectroutine.view.screens
 
 import android.widget.Toast
+import com.almamun252.perfectroutine.view.TaskScheduleFields
+import com.almamun252.perfectroutine.utils.TaskSchedule
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -99,10 +101,8 @@ fun AddScreen(
 
     // --- Date & Time States ---
     var deadlineMillis by rememberSaveable { mutableStateOf<Long?>(existingTask?.deadline) }
-    var tempDateMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
+    var startMillis by rememberSaveable { mutableStateOf(existingTask?.let { it.startDate ?: it.taskDate }) }
 
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
     var subjectExpanded by remember { mutableStateOf(false) }
 
     // থিম কালার (ট্যাব অনুযায়ী পরিবর্তন হবে)
@@ -120,6 +120,7 @@ fun AddScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .imePadding().statusBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
@@ -214,40 +215,8 @@ fun AddScreen(
                         }
                     }
 
-                    // 3. ডেডলাইন (Date & Time Picker)
-                    val sdf = SimpleDateFormat("dd MMM, yyyy  •  hh:mm a", Locale("bn", "BD"))
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = deadlineMillis?.let { sdf.format(Date(it)) } ?: "ডেডলাইন সেট করুন",
-                            onValueChange = { },
-                            readOnly = true,
-                            label = { Text("কবে শেষ করতে হবে?") },
-                            leadingIcon = { Icon(Icons.Rounded.EventAvailable, contentDescription = null, tint = if (deadlineMillis != null) themeColor else Color.Gray) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = themeColor, unfocusedBorderColor = Color(0xFFE2E8F0),
-                                focusedLabelColor = themeColor, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        // ইনপুটের ওপর ক্লিক করলে DatePicker ওপেন হবে
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                                    showDatePicker = true
-                                }
-                        )
-                        // ডেডলাইন ক্লিয়ার করার বাটন
-                        if (deadlineMillis != null) {
-                            IconButton(
-                                onClick = { deadlineMillis = null },
-                                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
-                            ) {
-                                Icon(Icons.Rounded.Close, contentDescription = "Clear", tint = Color.Gray)
-                            }
-                        }
-                    }
+                    TaskScheduleFields(startMillis, deadlineMillis, !busy,
+                        onStart = { startMillis = it }, onDeadline = { deadlineMillis = it })
 
                     // 4. প্রায়োরিটি (High, Medium, Low)
                     Text("কাজের গুরুত্ব (Priority)", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), modifier = Modifier.padding(top = 8.dp))
@@ -326,6 +295,14 @@ fun AddScreen(
                             return@Button
                         }
 
+                        val now = System.currentTimeMillis()
+                        val resolvedStart = startMillis ?: now
+                        val changedSchedule = existingTask == null ||
+                            resolvedStart != (existingTask.startDate ?: existingTask.taskDate) || deadlineMillis != existingTask.deadline
+                        if (changedSchedule && TaskSchedule.invalid(resolvedStart, deadlineMillis)) {
+                            Toast.makeText(context, "শেষের সময় শুরুর সময়ের আগে হতে পারে না।", Toast.LENGTH_LONG).show()
+                            return@Button
+                        }
                         // নতুন টাস্ক অবজেক্ট তৈরি
                         val task = Task(
                             id = existingTask?.id ?: 0,
@@ -335,7 +312,9 @@ fun AddScreen(
                             tabType = tabType,
                             priority = priority,
                             isCompleted = existingTask?.isCompleted ?: false,
-                            taskDate = existingTask?.taskDate ?: System.currentTimeMillis(),
+                            taskDate = existingTask?.taskDate ?: now,
+                            startDate = resolvedStart,
+                            sortOrder = existingTask?.sortOrder,
                             deadline = deadlineMillis,
                             imagePaths = imagePaths.toList()
                         )
@@ -375,59 +354,4 @@ fun AddScreen(
         CategoryManager(categories, onDeleteCategory, onDismiss = { showCategories = false })
     }
 
-    // --- Date Picker Dialog ---
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = deadlineMillis ?: System.currentTimeMillis())
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { tempDateMillis = it }
-                    showDatePicker = false
-                    showTimePicker = true // তারিখ সিলেক্ট হলে সময় সিলেক্ট করার পপআপ আসবে
-                }) { Text("পরবর্তী (সময়)", fontWeight = FontWeight.Bold, color = themeColor) }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("বাতিল", color = Color.Gray) } }
-        ) {
-            DatePicker(state = datePickerState, title = { Text(" ডেডলাইন নির্বাচন করুন", modifier = Modifier.padding(16.dp)) })
-        }
-    }
-
-    // --- Time Picker Dialog ---
-    if (showTimePicker) {
-        val cal = Calendar.getInstance().apply { timeInMillis = deadlineMillis ?: System.currentTimeMillis() }
-        val timePickerState = rememberTimePickerState(
-            initialHour = cal.get(Calendar.HOUR_OF_DAY),
-            initialMinute = cal.get(Calendar.MINUTE)
-        )
-
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val calendar = Calendar.getInstance()
-                    calendar.timeInMillis = tempDateMillis // DatePicker থেকে পাওয়া তারিখ
-                    calendar.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
-                    calendar.set(Calendar.MINUTE, timePickerState.minute)
-                    deadlineMillis = calendar.timeInMillis
-                    showTimePicker = false
-                }) {
-                    Text("নিশ্চিত করুন", fontWeight = FontWeight.Bold, color = themeColor)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("বাতিল", color = Color.Gray) }
-            },
-            title = { Text("সময় নির্বাচন করুন", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    TimePicker(state = timePickerState)
-                }
-            },
-            containerColor = Color.White
-        )
-    }
 }

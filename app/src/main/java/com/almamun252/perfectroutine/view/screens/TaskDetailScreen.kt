@@ -236,12 +236,12 @@ fun CountdownSection(task: Task, currentTime: Long, themeColor: Color) {
     }
 
     // টাইম ক্যালকুলেশন
-    val taskCreationDate = task.taskDate
+    val taskCreationDate = task.startDate ?: task.taskDate
     val totalDuration = deadline - taskCreationDate
     val timeRemaining = deadline - currentTime
 
     // প্রগ্রেস (0.0 থেকে 1.0)
-    val progress = if (timeRemaining <= 0) 0f else (timeRemaining.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
+    val progress = if (timeRemaining <= 0 || totalDuration <= 0) 0f else (timeRemaining.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
 
     // ডাইনামিক কালার (সময় বেশি থাকলে সবুজ, অর্ধেক হলে কমলা, কম থাকলে লাল)
     val barColor = when {
@@ -407,6 +407,8 @@ fun TaskInfoCard(task: Task, themeColor: Color, totalTimeSpent: Long) { // <--- 
 
             // Details Row
             InfoRow(icon = Icons.Rounded.EventNote, label = "তৈরি করা হয়েছে", value = createdStr)
+            Spacer(modifier = Modifier.height(12.dp))
+            InfoRow(icon = Icons.Rounded.Schedule, label = "শুরুর সময়", value = sdf.format(Date(task.startDate ?: task.taskDate)))
             Spacer(modifier = Modifier.height(12.dp))
             InfoRow(icon = Icons.Rounded.EventAvailable, label = "ডেডলাইন", value = deadlineStr)
 

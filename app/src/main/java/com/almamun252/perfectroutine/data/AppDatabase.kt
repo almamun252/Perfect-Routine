@@ -17,7 +17,7 @@ import com.almamun252.perfectroutine.model.TimeSession
  */
 @Database(
     entities = [Task::class, Category::class, TimeSession::class, UserTab::class],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(NoteImageConverters::class)

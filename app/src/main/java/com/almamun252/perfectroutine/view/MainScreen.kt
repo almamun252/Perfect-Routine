@@ -189,7 +189,7 @@ fun MainScreen(
                         }
                     }
                     tab.isQuickList -> key(tab.id) {
-                        TempScreen(taskViewModel, tab.id, tab.name, allTasks) { }
+                        TempScreen(taskViewModel, tab.id, tab.name, allTasks) { navController.navigate("task_detail/${it.id}") }
                     }
                     else -> key(tab.id) {
                         TaskListScreen(navController, allTasks.filter { it.tabType == tab.id },
