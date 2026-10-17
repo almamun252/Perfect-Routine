@@ -29,7 +29,7 @@ fun TaskScheduleFields(start: Long?, deadline: Long?, enabled: Boolean = true,
     var choosingTime by rememberSaveable { mutableStateOf(false) }
     var date by rememberSaveable { mutableLongStateOf(0L) }
     val format = SimpleDateFormat("dd MMM yyyy · hh:mm a", Locale.getDefault())
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ScheduleField("শুরুর সময়", start?.let { format.format(Date(it)) } ?: "সেভ করার সময় থেকে", start != null, enabled,
             onClick = { target = "start"; choosingTime = false }, onClear = { onStart(null) })
         ScheduleField("শেষের সময়", deadline?.let { format.format(Date(it)) } ?: "ডেডলাইন নেই", deadline != null, enabled,
@@ -67,7 +67,7 @@ private fun ScheduleField(label: String, value: String, clearable: Boolean, enab
                           onClick: () -> Unit, onClear: () -> Unit) {
     Surface(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(16.dp), color = Color.White,
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Schedule, null, tint = Color(0xFF4668D9))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {

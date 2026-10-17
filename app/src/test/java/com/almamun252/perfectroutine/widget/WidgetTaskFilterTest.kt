@@ -31,4 +31,11 @@ class WidgetTaskFilterTest {
     @Test fun equalDeadlinesHaveStableOrder() {
         assertEquals(listOf(1, 2), widgetTasks(listOf(task(2, now), task(1, now)), now).map { it.id })
     }
+    @Test fun usesStartThenPriorityInsteadOfDeadlineAsPrimaryOrder() {
+        val futureHigh = task(1, now + 1000).copy(startDate = now + 500, priority = "High")
+        val startedLow = task(2, now + 3000).copy(startDate = now - 500, priority = "Low")
+        val startedHigh = task(3, now + 5000).copy(startDate = now - 500, priority = "High")
+        assertEquals(listOf(3, 2, 1), widgetTasks(listOf(futureHigh, startedLow, startedHigh), now).map { it.id })
+    }
+
 }

@@ -90,8 +90,8 @@ The Android module is configured with the following settings:
 - **Minimum SDK:** Android 8.0 (API 26)
 - **Compile SDK:** 35
 - **Target SDK:** 35
-- **Version name:** 2.4.0
-- **Version code:** 4
+- **Version name:** 2.4.1
+- **Version code:** 5
 
 Use a compatible version of Android Studio and the JDK required by the project's Gradle configuration. The Gradle wrapper and version catalog define the build-tool and dependency versions.
 
@@ -206,3 +206,18 @@ Retain exported schemas 2–5 and generate `6.json` during the build. Never unin
 or clear phone data to resolve a migration failure. Keep the same signing key.
 The personal-assistant scheduler and process-death recovery for active focus
 sessions remain future work; this review is not a guarantee of a bug-free app.
+
+## Version 2.4.1 — ordering and UI refinement
+
+Home and widgets use a shared order: started tasks first, ascending start time,
+High/Medium/Low for equal start times, then deadline and task ID as stable ties.
+Legacy tasks fall back to their creation time. Existing date-range filters and
+overdue inclusion remain; widget refresh retains its existing low-frequency policy.
+
+The task editor uses smaller text/gaps, expandable notes/images, and a Save button
+outside the scroll area with keyboard insets. The active bottom-navigation icon
+slides into a raised circular cutout; Home remains in the middle slot.
+
+This source update keeps database version 6 and requires no new migration.
+Build/render and tests for this version must run on the development PC/device.
+See `docs/UI-REFINEMENT-2.4.1.md` for the exact acceptance checklist.

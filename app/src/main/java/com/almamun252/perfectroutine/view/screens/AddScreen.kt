@@ -76,6 +76,7 @@ fun AddScreen(
     var importing by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
+    var notesExpanded by rememberSaveable { mutableStateOf(!existingTask?.description.isNullOrBlank() || existingTask?.imagePaths?.isNotEmpty() == true) }
     val busy = importing || saving
     BackHandler(enabled = busy) { }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
@@ -110,23 +111,14 @@ fun AddScreen(
 
     val screenTitle = if (existingTask != null) "কাজ এডিট করুন" else "নতুন কাজ যোগ করুন"
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn(tween(600)) + slideInVertically(tween(600)) { 150 },
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .imePadding().statusBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
+    Box(Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
+        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(180)), modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 16.dp)) {
+                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // --- Top Bar ---
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -140,18 +132,20 @@ fun AddScreen(
                     ) {
                         Icon(Icons.Rounded.ArrowBackIosNew, contentDescription = "Back", tint = Color(0xFF334155))
                     }
-                    Text(text = screenTitle, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color(0xFF1E293B))
+                    Text(text = screenTitle, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, color = Color(0xFF1E293B))
                     Spacer(modifier = Modifier.size(44.dp)) // ব্যালেন্স করার জন্য
                 }
 
                 // --- Form Fields ---
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 
                     // 1. কাজের নাম (Title)
                     OutlinedTextField(
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        enabled = !busy,
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text("কাজের নাম (ছবি দিলে ঐচ্ছিক)") },
+                        label = { Text("কাজের নাম", fontSize = 12.sp) },
                         leadingIcon = { Icon(Icons.Rounded.TaskAlt, contentDescription = null, tint = themeColor) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
@@ -168,12 +162,14 @@ fun AddScreen(
                         onExpandedChange = { subjectExpanded = !subjectExpanded }
                     ) {
                         OutlinedTextField(
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        enabled = !busy,
                             value = subjectName,
                             onValueChange = {
                                 subjectName = it
                                 subjectExpanded = true // টাইপ করার সময় ড্রপডাউন ওপেন থাকবে
                             },
-                            label = { Text("কোন সাবজেক্ট? (লিখুন বা সিলেক্ট করুন)") },
+                            label = { Text("সাবজেক্ট / ক্যাটাগরি", fontSize = 12.sp) },
                             leadingIcon = { Icon(Icons.Rounded.School, contentDescription = null, tint = themeColor) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = subjectExpanded) },
                             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable).fillMaxWidth(),
@@ -219,7 +215,7 @@ fun AddScreen(
                         onStart = { startMillis = it }, onDeadline = { deadlineMillis = it })
 
                     // 4. প্রায়োরিটি (High, Medium, Low)
-                    Text("কাজের গুরুত্ব (Priority)", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), modifier = Modifier.padding(top = 8.dp))
+                    Text("Priority", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), modifier = Modifier.padding(top = 2.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -228,6 +224,7 @@ fun AddScreen(
                             val isSelected = priority == prio
                             Surface(
                                 onClick = { priority = prio },
+                                enabled = !busy,
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (isSelected) color else Color.White,
                                 border = if (!isSelected) BorderStroke(1.dp, Color(0xFFE2E8F0)) else null,
@@ -236,6 +233,7 @@ fun AddScreen(
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = prio,
+                                        fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isSelected) Color.White else Color(0xFF64748B)
                                     )
@@ -244,8 +242,17 @@ fun AddScreen(
                         }
                     }
 
+                    TextButton(onClick = { notesExpanded = !notesExpanded }, enabled = !busy,
+                        contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        Icon(if (notesExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (notesExpanded) "নোট ও ছবি গুটিয়ে রাখুন" else "নোট বা ছবি যোগ করুন", fontSize = 13.sp)
+                    }
+                    if (notesExpanded) {
                     // 5. বিস্তারিত নোট
                     OutlinedTextField(
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        enabled = !busy,
                         value = description,
                         onValueChange = { description = it },
                         label = { Text("বিস্তারিত নোট (ঐচ্ছিক)") },
@@ -276,11 +283,13 @@ fun AddScreen(
                             scope.launch(Dispatchers.IO) { NoteImageStore.deleteDraft(context.applicationContext, path) }
                         })
                     }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
 
-                // --- Save Button ---
+                }
+                // Save remains outside the scroll area and above the keyboard.
+                Surface(color = Color(0xFFF8FAFC), modifier = Modifier.fillMaxWidth()) {
                 Button(
                     onClick = {
                         val finalTitle = title.trim().ifEmpty { if (imagePaths.isNotEmpty()) "ছবির নোট" else "" }
@@ -332,20 +341,20 @@ fun AddScreen(
                         }
                     },
                     enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().height(60.dp),
-                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = themeColor),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 8.dp)
                 ) {
                     Text(
                         text = if (saving) "সেভ হচ্ছে…" else if (existingTask != null) "আপডেট করুন" else "সেভ করুন",
-                        fontSize = 18.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                 }
 
-                Spacer(modifier = Modifier.height(60.dp))
+                }
             }
         }
     }

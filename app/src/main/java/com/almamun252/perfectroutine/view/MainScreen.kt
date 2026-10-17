@@ -8,6 +8,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -155,7 +157,7 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            CenteredBottomBar(navItems, selectedTabId) { id ->
+            CenteredBottomBar(navItems, if (showAllTabs) TabNavigation.ALL_TABS else selectedTabId) { id ->
                 if (id == TabNavigation.ALL_TABS) showAllTabs = true else selectedTabId = id
             }
         }
@@ -274,34 +276,48 @@ fun MainScreen(
 
 @Composable
 private fun CenteredBottomBar(items: List<NavigationItem>, selectedId: String, onSelect: (String) -> Unit) {
-    Surface(color = Color.White, shadowElevation = 12.dp,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().height(88.dp).padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            items.forEach { item ->
-                val selected = selectedId == item.tabName ||
-                    (item.tabName == TabNavigation.ALL_TABS && items.none { it.tabName == selectedId })
-                Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(item.tabName) }.padding(top = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    if (item.tabName == TabNavigation.HOME) {
-                        Surface(shape = CircleShape, color = Color(0xFF4668D9), shadowElevation = if (selected) 8.dp else 3.dp,
-                            modifier = Modifier.size(52.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(item.icon, item.title, tint = Color.White, modifier = Modifier.size(28.dp))
-                            }
-                        }
-                    } else {
-                        Box(Modifier.size(width = 48.dp, height = 36.dp)
-                            .background(if (selected) item.themeColor.copy(alpha = .12f) else Color.Transparent, RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center) {
-                            Icon(item.icon, item.title, tint = if (selected) item.themeColor else Color(0xFF8A96AA), modifier = Modifier.size(24.dp))
-                        }
+    val selectedIndex = items.indexOfFirst { it.tabName == selectedId }.let { index ->
+        if (index >= 0) index else items.indexOfFirst { it.tabName == TabNavigation.ALL_TABS }.coerceAtLeast(0)
+    }
+    val selectedItem = items[selectedIndex]
+    val accent by animateColorAsState(selectedItem.themeColor, tween(240), label = "nav_accent")
+    BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding().height(88.dp)) {
+        val slotWidth = maxWidth / items.size
+        val bubbleSize = 64.dp
+        val bubbleX by animateDpAsState(
+            targetValue = slotWidth * selectedIndex + (slotWidth - bubbleSize) / 2,
+            animationSpec = tween(280, easing = FastOutSlowInEasing), label = "nav_slide")
+        Surface(color = Color.White, shadowElevation = 10.dp,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            modifier = Modifier.fillMaxWidth().height(66.dp).align(Alignment.BottomCenter)) { }
+        Row(Modifier.fillMaxSize()) {
+            items.forEachIndexed { index, item ->
+                val selected = index == selectedIndex
+                Column(Modifier.weight(1f).fillMaxHeight()
+                    .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(item.tabName) })
+                    .padding(top = 28.dp, bottom = 5.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom) {
+                    Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
+                        if (!selected) Icon(item.icon, null, tint = Color(0xFF8A96AA), modifier = Modifier.size(22.dp))
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(item.title, color = if (selected) item.themeColor else Color(0xFF7B879C),
                         fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(4.dp))
+                }
+            }
+        }
+        // The selected tab floats into the shallow cutout; Home keeps its middle slot.
+        Box(Modifier.offset(x = bubbleX).size(bubbleSize)
+            .background(Color(0xFFF8FAFC), CircleShape).padding(5.dp)) {
+            Surface(onClick = { onSelect(selectedItem.tabName) }, shape = CircleShape, color = accent,
+                shadowElevation = 6.dp, modifier = Modifier.fillMaxSize()) {
+                Box(contentAlignment = Alignment.Center) {
+                    AnimatedContent(selectedItem, transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(160)) },
+                        label = "nav_icon") { item ->
+                        Icon(item.icon, item.title, tint = Color.White, modifier = Modifier.size(27.dp))
+                    }
                 }
             }
         }

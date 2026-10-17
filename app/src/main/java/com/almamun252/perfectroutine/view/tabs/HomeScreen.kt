@@ -35,6 +35,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.almamun252.perfectroutine.utils.HomeTaskFilter
 import kotlinx.coroutines.delay
 import com.almamun252.perfectroutine.model.UserTab
+import com.almamun252.perfectroutine.utils.TaskOrdering
 import com.almamun252.perfectroutine.model.Task
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -72,7 +73,7 @@ fun HomeScreen(
         suspend fun updateClock() {
             while (true) {
                 now = System.currentTimeMillis()
-                val nextDeadline = allTasks.filter { !it.isCompleted }.mapNotNull { it.deadline }
+                val nextDeadline = allTasks.filter { !it.isCompleted }.flatMap { listOfNotNull(it.deadline, it.startDate ?: it.taskDate) }
                     .filter { it >= now }.minOrNull()
                 delay(nextDeadline?.let { (it - now + 1L).coerceIn(1L, 60_000L) } ?: 60_000L)
             }
@@ -85,19 +86,12 @@ fun HomeScreen(
     }
     val filteredPendingTasks = allTasks.filter {
         !it.isCompleted && (HomeTaskFilter.isOverdue(it, now) || it in filteredAllTasksByDate)
-    }.sortedWith(compareBy<Task>(
-        { if (HomeTaskFilter.isOverdue(it, now)) 0 else 1 },
-        { if (it.priority == "High") 0 else if (it.priority == "Medium") 1 else 2 },
-        { it.deadline ?: Long.MAX_VALUE }
-    ))
+    }.sortedWith(TaskOrdering.comparator(now))
     val overdueCount = filteredPendingTasks.count { HomeTaskFilter.isOverdue(it, now) }
 
     // সম্পন্ন হওয়া কাজগুলো আলাদা করে রাখা হলো
-    val filteredCompletedTasks = filteredAllTasksByDate.filter { it.isCompleted }.sortedWith(
-        compareBy(
-            { it.deadline ?: Long.MAX_VALUE }
-        )
-    )
+    val filteredCompletedTasks = filteredAllTasksByDate.filter { it.isCompleted }
+        .sortedWith(TaskOrdering.comparator(now))
 
     val bgColor = Color(0xFFF8FAFC)
     val themeColor = Color(0xFF0EA5E9)

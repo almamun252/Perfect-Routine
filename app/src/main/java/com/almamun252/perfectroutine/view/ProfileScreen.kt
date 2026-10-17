@@ -65,7 +65,7 @@ fun ProfileScreen(tabs: List<UserTab>, tasks: List<Task>, onManageTabs: () -> Un
                 Column(Modifier.padding(16.dp)) { NotificationSettingsPanel() }
             }
         }
-        Text("Perfect Routine · 2.4.0", modifier = Modifier.align(Alignment.CenterHorizontally),
+        Text("Perfect Routine · 2.4.1", modifier = Modifier.align(Alignment.CenterHorizontally),
             color = Color(0xFF7B879C), fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
     }
